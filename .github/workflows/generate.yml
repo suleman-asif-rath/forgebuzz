@@ -1,0 +1,19 @@
+name: Cantagio · Generate daily posts
+
+# Fills the day's queue each morning (09:00 Pakistan = 04:00 UTC).
+# Vercel's free cron only runs ~daily, so GitHub Actions is the timer.
+on:
+  schedule:
+    - cron: "0 4 * * *"
+  workflow_dispatch: {} # allow manual runs from the Actions tab
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger /api/generate
+        run: |
+          curl --fail-with-body --show-error --silent \
+            --retry 3 --retry-delay 10 --max-time 120 \
+            -X POST "${{ secrets.CANTAGIO_URL }}/api/generate" \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}"

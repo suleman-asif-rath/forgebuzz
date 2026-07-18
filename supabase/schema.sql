@@ -1,0 +1,36 @@
+-- Cantagio Supabase schema.
+-- Run this in the Supabase SQL editor once, then create a PUBLIC storage
+-- bucket named "cantagio" (Storage -> New bucket -> Public).
+
+create table if not exists posts (
+  id text primary key,
+  created_at timestamptz not null default now(),
+  scheduled_for timestamptz not null,
+  status text not null default 'queued',      -- queued | posted | failed
+  category text not null,
+  template text not null,                      -- headline | fact | question
+  headline text not null,
+  caption text not null,
+  hashtags text[] not null default '{}',
+  source text not null,
+  source_url text not null,
+  topic_fingerprint text not null,
+  image_path text not null,
+  image_url text not null,
+  fb_id text,
+  ig_id text,
+  error text
+);
+
+create index if not exists posts_status_due_idx on posts (status, scheduled_for);
+create index if not exists posts_created_idx on posts (created_at desc);
+
+create table if not exists used_topics (
+  fingerprint text primary key,
+  used_at timestamptz not null default now()
+);
+
+-- The app connects with the SERVICE key (server-side only), which bypasses
+-- Row Level Security, so no policies are required for the pipeline itself.
+-- Keep the service key secret (Vercel env var only). If you later add a
+-- public dashboard, add RLS policies before exposing the anon key.

@@ -1,0 +1,19 @@
+name: Cantagio · Publish due posts
+
+# Runs hourly and publishes whichever queued posts are now due. Posts are
+# staggered across the day by the generate step, so this drip-feeds them.
+on:
+  schedule:
+    - cron: "0 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger /api/publish
+        run: |
+          curl --fail-with-body --show-error --silent \
+            --retry 3 --retry-delay 10 --max-time 120 \
+            -X POST "${{ secrets.CANTAGIO_URL }}/api/publish" \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}"

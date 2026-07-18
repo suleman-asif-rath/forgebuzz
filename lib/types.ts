@@ -1,0 +1,70 @@
+// Shared shapes for the Cantagio pipeline.
+
+export type TemplateKind = "headline" | "fact" | "question";
+
+/** A raw candidate topic pulled from a trend source. */
+export interface Trend {
+  title: string;
+  source: string; // e.g. "reddit r/space", "Hacker News"
+  url: string;
+  score: number; // relative popularity within its source
+  category: string; // mapped Cantagio category (e.g. "SPACE")
+}
+
+/** The card + caption content produced by the copywriter. */
+export interface CardContent {
+  headline: string; // short, punchy, for the Anton card headline
+  template: TemplateKind;
+  category: string; // uppercase pill text, e.g. "TRENDING"
+  stat?: string; // for "fact" cards: the big number, e.g. "8 MIN"
+  captionHook: string;
+  captionContext: string;
+  cta: string;
+  hashtags: string[];
+  backgroundKeyword: string; // Pexels search term for the photo
+}
+
+/** Everything the renderer needs to draw one card. */
+export interface CardSpec {
+  template: TemplateKind;
+  category: string;
+  headline: string;
+  stat?: string;
+  source?: string;
+  backgroundUrl?: string | null; // Pexels photo URL, or null -> gradient
+}
+
+/** A row in the post queue. */
+export interface PostRow {
+  id: string;
+  createdAt: string; // ISO
+  scheduledFor: string; // ISO
+  status: "queued" | "posted" | "failed";
+  category: string;
+  template: TemplateKind;
+  headline: string;
+  caption: string; // full assembled IG/FB caption
+  hashtags: string[];
+  source: string;
+  sourceUrl: string;
+  topicFingerprint: string;
+  imagePath: string; // local: /generated/<id>.png ; supabase: public URL
+  imageUrl: string; // absolute URL usable by Meta
+  fbId?: string | null;
+  igId?: string | null;
+  error?: string | null;
+}
+
+export interface GenerateSummary {
+  mode: "dry-run" | "live";
+  picked: number;
+  queued: PostRow[];
+  skipped: string[];
+}
+
+export interface PublishSummary {
+  mode: "dry-run" | "live";
+  due: number;
+  posted: { id: string; fbId?: string | null; igId?: string | null }[];
+  failed: { id: string; error: string }[];
+}

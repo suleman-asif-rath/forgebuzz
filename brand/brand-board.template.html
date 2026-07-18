@@ -1,0 +1,404 @@
+<title>Cantagio — Brand Identity</title>
+<style>
+/* __FONTS__ */
+
+:root{
+  --ink:#0B1020; --surface:#151C2E; --line:#26304A;
+  --text:#EDF1FA; --muted:#8B93A8;
+  --sig-from:#3E86FF; --sig-to:#63C6F5;
+  --signal:linear-gradient(135deg,#3E86FF 0%,#63C6F5 100%);
+  --pad:clamp(20px,5vw,64px);
+  --maxw:1120px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{background:var(--ink);color:var(--text);
+  font-family:'Manrope',system-ui,sans-serif;font-weight:450;
+  line-height:1.55;letter-spacing:0.005em;overflow-x:hidden}
+.wrap{max-width:var(--maxw);margin:0 auto;padding:0 var(--pad)}
+
+.display{font-family:'Anton',Impact,sans-serif;font-weight:400;
+  text-transform:uppercase;letter-spacing:0.01em;line-height:0.92;text-wrap:balance}
+.signal-text{background:var(--signal);-webkit-background-clip:text;
+  background-clip:text;color:transparent}
+.eyebrow{font-size:0.72rem;font-weight:700;letter-spacing:0.22em;
+  text-transform:uppercase;color:var(--muted)}
+.muted{color:var(--muted)}
+.mark{display:block}
+
+/* HERO */
+.hero{position:relative;padding:clamp(64px,12vh,140px) 0 clamp(48px,8vh,96px);overflow:hidden}
+.hero::before{content:"";position:absolute;inset:0;z-index:0;
+  background:
+    radial-gradient(58% 48% at 80% 16%, rgba(99,198,245,0.18), transparent 70%),
+    radial-gradient(55% 45% at 12% 92%, rgba(62,134,255,0.20), transparent 70%);
+  pointer-events:none}
+.hero .wrap{position:relative;z-index:1}
+.lockup{display:flex;align-items:center;gap:clamp(14px,2.4vw,26px);flex-wrap:wrap}
+.lockup .mark{width:clamp(72px,10vw,110px);height:auto;flex:none}
+.wordmark{font-family:'Anton',Impact,sans-serif;text-transform:uppercase;
+  font-size:clamp(3rem,13vw,8.5rem);line-height:0.86;letter-spacing:0.012em;color:var(--text)}
+.tagline{margin-top:clamp(20px,3vw,34px);font-size:clamp(1.15rem,2.6vw,1.9rem);
+  max-width:22ch;color:var(--text);font-weight:600}
+.hero .eyebrow{margin-bottom:22px}
+
+/* SECTION */
+section{padding:clamp(46px,8vh,92px) 0;border-top:1px solid var(--line)}
+.sec-head{display:flex;align-items:baseline;gap:16px;flex-wrap:wrap;margin-bottom:clamp(26px,4vw,44px)}
+.sec-num{font-family:'Anton',sans-serif;font-size:1.1rem;color:var(--sig-to)}
+.sec-title{font-family:'Anton',sans-serif;text-transform:uppercase;
+  font-size:clamp(1.5rem,4vw,2.4rem);letter-spacing:0.01em;line-height:1}
+.sec-note{color:var(--muted);max-width:62ch;margin-top:6px;font-size:0.98rem}
+
+/* LOGO */
+.logo-grid{display:grid;gap:20px;grid-template-columns:repeat(auto-fit,minmax(210px,1fr))}
+.logo-cell{background:var(--surface);border:1px solid var(--line);border-radius:18px;
+  padding:32px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:18px;min-height:210px}
+.logo-cell.light{background:#EDF1FA}
+.logo-cell .cap{font-size:0.74rem;letter-spacing:0.14em;text-transform:uppercase;color:var(--muted)}
+.logo-cell.light .cap{color:#5c6580}
+.lockup-sm{display:flex;align-items:center;gap:12px}
+.lockup-sm .mark{width:46px;height:46px}
+.lockup-sm b{font-family:'Anton',sans-serif;text-transform:uppercase;
+  font-size:1.8rem;letter-spacing:0.02em;color:var(--text)}
+.logo-cell.light .lockup-sm b{color:#0B1020}
+.avatar{width:96px;height:96px}
+
+/* COLOUR */
+.swatches{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+.sw{border:1px solid var(--line);border-radius:16px;overflow:hidden;background:var(--surface)}
+.sw .chip{height:96px}
+.sw .meta{padding:14px 16px}
+.sw .nm{font-weight:700;font-size:0.95rem}
+.sw .hex{font-family:'Manrope',monospace;font-variant-numeric:tabular-nums;
+  color:var(--muted);font-size:0.82rem;letter-spacing:0.03em;margin-top:2px}
+.sw .use{color:var(--muted);font-size:0.78rem;margin-top:8px;line-height:1.4}
+.sw.sig .chip{background:var(--signal)}
+
+/* TYPE */
+.type-grid{display:grid;gap:20px;grid-template-columns:1fr}
+@media(min-width:720px){.type-grid{grid-template-columns:1fr 1fr}}
+.spec{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:clamp(24px,3vw,36px)}
+.spec .role{font-size:0.74rem;letter-spacing:0.16em;text-transform:uppercase;color:var(--sig-to);font-weight:700}
+.spec .fam{font-family:'Anton',sans-serif;font-size:0.95rem;color:var(--muted);
+  margin-top:4px;text-transform:uppercase;letter-spacing:0.08em}
+.spec .big-anton{font-family:'Anton',sans-serif;text-transform:uppercase;
+  font-size:clamp(3.4rem,9vw,6rem);line-height:0.9;margin:14px 0 6px}
+.spec .glyphs{color:var(--muted);font-family:'Anton',sans-serif;letter-spacing:0.06em;
+  word-break:break-word;text-transform:uppercase}
+.spec .big-man{font-size:clamp(2rem,5.5vw,3.2rem);font-weight:800;margin:14px 0 6px;letter-spacing:-0.01em}
+.spec .man-weights{display:flex;flex-direction:column;gap:2px;margin-top:12px}
+.spec .man-weights span{font-size:1.05rem}
+.scale{margin-top:20px;border-top:1px solid var(--line);padding-top:16px;display:flex;flex-direction:column;gap:6px}
+.scale div{display:flex;justify-content:space-between;gap:16px;color:var(--muted);
+  font-size:0.85rem;font-variant-numeric:tabular-nums}
+
+/* VOICE */
+.voice{display:grid;gap:20px;grid-template-columns:1fr}
+@media(min-width:820px){.voice{grid-template-columns:1.1fr 0.9fr}}
+.cap-demo{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:clamp(22px,3vw,32px)}
+.cap-demo .hook{font-weight:800;font-size:1.15rem;margin-bottom:10px}
+.cap-demo p{margin-bottom:10px}
+.cap-demo .cta{color:var(--text);font-weight:700}
+.cap-demo .tags{color:var(--sig-to);font-weight:600;margin-top:14px;line-height:1.7;word-spacing:0.1em}
+.rules{list-style:none;display:flex;flex-direction:column;gap:14px}
+.rules li{display:flex;gap:12px;align-items:flex-start;color:var(--muted);font-size:0.95rem}
+.rules li b{color:var(--text);font-weight:700}
+.rules .n{font-family:'Anton',sans-serif;color:var(--sig-to);flex:none;width:1.6em;font-size:1.05rem}
+
+/* POST TEMPLATES */
+.cards{display:grid;gap:clamp(16px,2.4vw,24px);grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+.card{position:relative;aspect-ratio:4/5;border-radius:16px;overflow:hidden;
+  border:1px solid var(--line);display:flex;flex-direction:column;isolation:isolate}
+.card .bg{position:absolute;inset:0;z-index:-2}
+.card .scrim{position:absolute;inset:0;z-index:-1;
+  background:linear-gradient(180deg, rgba(11,16,32,0.45) 0%, rgba(11,16,32,0) 32%,
+    rgba(11,16,32,0.20) 55%, rgba(11,16,32,0.92) 100%)}
+.card .pad{position:relative;flex:1;display:flex;flex-direction:column;padding:clamp(16px,4.5%,26px)}
+.card .top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.card .brandtag{display:flex;align-items:center;gap:8px}
+.card .brandtag .mark{width:28px;height:28px}
+.card .brandtag b{font-family:'Anton',sans-serif;text-transform:uppercase;font-size:0.95rem;letter-spacing:0.03em}
+.pill{font-size:0.62rem;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;
+  color:#071022;background:var(--signal);padding:5px 10px;border-radius:999px;white-space:nowrap}
+.card .body{margin-top:auto}
+.card h3{font-family:'Anton',sans-serif;text-transform:uppercase;line-height:0.94;
+  letter-spacing:0.006em;font-size:clamp(1.35rem,3.4vw,1.85rem);text-wrap:balance}
+.card .kw{background:var(--signal);-webkit-background-clip:text;background-clip:text;color:transparent}
+.card .src{color:var(--muted);font-size:0.72rem;margin-top:10px;letter-spacing:0.02em}
+.card .wm{position:absolute;left:0;right:0;bottom:clamp(10px,3.5%,16px);text-align:center;
+  font-size:0.72rem;font-weight:700;letter-spacing:0.16em;color:rgba(237,241,250,0.72);text-transform:uppercase}
+.card.fact .bg{background:radial-gradient(120% 90% at 20% 0%, #17223d, #0B1020 70%)}
+.card.fact .stat{font-family:'Anton',sans-serif;text-transform:uppercase;font-size:clamp(3rem,10vw,4.6rem);line-height:0.88}
+.card.space .bg{background:
+  radial-gradient(58% 40% at 72% 20%, rgba(99,198,245,0.34), transparent 60%),
+  radial-gradient(90% 70% at 30% 92%, rgba(40,60,120,0.55), transparent 70%),
+  linear-gradient(160deg,#101a33,#05070f)}
+.card.question .bg{background:
+  radial-gradient(70% 50% at 30% 15%, rgba(62,134,255,0.42), transparent 60%),
+  linear-gradient(160deg,#0e1830,#070b16)}
+
+footer{border-top:1px solid var(--line);padding:40px 0 72px;color:var(--muted);font-size:0.86rem}
+footer code{background:var(--surface);border:1px solid var(--line);padding:2px 7px;
+  border-radius:6px;color:var(--text);font-size:0.82rem}
+footer .files{display:flex;flex-direction:column;gap:8px;margin-top:14px}
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <linearGradient id="soft" x1="0" y1="1" x2="1" y2="0">
+    <stop offset="0" stop-color="#3E86FF"/><stop offset="1" stop-color="#63C6F5"/>
+  </linearGradient>
+</defs></svg>
+
+<header class="hero">
+  <div class="wrap">
+    <p class="eyebrow">Brand Identity · v1 · Images-only launch</p>
+    <div class="lockup">
+      <svg class="mark" viewBox="0 0 120 120" aria-label="Cantagio mark">
+        <rect x="8" y="8" width="104" height="104" rx="27" fill="url(#soft)"/>
+        <path d="M84.4 30.9 A38 38 0 1 0 84.4 89.1" fill="none" stroke="#0B1020" stroke-width="15" stroke-linecap="round"/>
+      </svg>
+      <span class="wordmark">Cantagio</span>
+    </div>
+    <p class="tagline">Know it <span class="signal-text">before</span> it's everywhere.</p>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- 1 · LOGO -->
+  <section>
+    <div class="sec-head">
+      <span class="sec-num">01</span>
+      <div>
+        <h2 class="sec-title">Logo</h2>
+        <p class="sec-note">The mark is the <b style="color:var(--text)">C Tile</b> — the brand's initial
+          knocked out of a soft Signal-Blue rounded tile. It doubles as the profile avatar with maximum
+          contrast. Keep clear space of one tile-corner-radius on all sides. Never recolour, rotate, or stretch it.</p>
+      </div>
+    </div>
+    <div class="logo-grid">
+      <div class="logo-cell">
+        <svg class="mark" viewBox="0 0 120 120" style="width:80px" aria-label="mark">
+          <rect x="8" y="8" width="104" height="104" rx="27" fill="url(#soft)"/>
+          <path d="M84.4 30.9 A38 38 0 1 0 84.4 89.1" fill="none" stroke="#0B1020" stroke-width="15" stroke-linecap="round"/></svg>
+        <span class="cap">Mark</span>
+      </div>
+      <div class="logo-cell">
+        <div class="lockup-sm">
+          <svg class="mark" viewBox="0 0 120 120" aria-label="lockup mark">
+            <rect x="8" y="8" width="104" height="104" rx="27" fill="url(#soft)"/>
+            <path d="M84.4 30.9 A38 38 0 1 0 84.4 89.1" fill="none" stroke="#0B1020" stroke-width="15" stroke-linecap="round"/></svg>
+          <b>Cantagio</b>
+        </div>
+        <span class="cap">Horizontal lockup</span>
+      </div>
+      <div class="logo-cell">
+        <svg class="mark avatar" viewBox="0 0 120 120" aria-label="avatar">
+          <rect x="8" y="8" width="104" height="104" rx="27" fill="url(#soft)"/>
+          <path d="M84.4 30.9 A38 38 0 1 0 84.4 89.1" fill="none" stroke="#0B1020" stroke-width="15" stroke-linecap="round"/></svg>
+        <span class="cap">Profile avatar</span>
+      </div>
+      <div class="logo-cell light">
+        <div class="lockup-sm">
+          <svg class="mark" viewBox="0 0 120 120" aria-label="lockup on light">
+            <rect x="8" y="8" width="104" height="104" rx="27" fill="url(#soft)"/>
+            <path d="M84.4 30.9 A38 38 0 1 0 84.4 89.1" fill="none" stroke="#0B1020" stroke-width="15" stroke-linecap="round"/></svg>
+          <b>Cantagio</b>
+        </div>
+        <span class="cap">On light</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2 · COLOUR -->
+  <section>
+    <div class="sec-head">
+      <span class="sec-num">02</span>
+      <div>
+        <h2 class="sec-title">Colour</h2>
+        <p class="sec-note">Deep ink-navy ground, soft cool-white type, and one signature: the
+          <b style="color:var(--text)">Signal Blue</b> gradient. Never add a second bright accent —
+          the blue is the whole brand.</p>
+      </div>
+    </div>
+    <div class="swatches">
+      <div class="sw"><div class="chip" style="background:#0B1020;border-bottom:1px solid var(--line)"></div>
+        <div class="meta"><div class="nm">Ink</div><div class="hex">#0B1020</div>
+          <div class="use">Primary background on every post.</div></div></div>
+      <div class="sw"><div class="chip" style="background:#151C2E"></div>
+        <div class="meta"><div class="nm">Surface</div><div class="hex">#151C2E</div>
+          <div class="use">Solid-colour "fact" cards, panels.</div></div></div>
+      <div class="sw"><div class="chip" style="background:#EDF1FA"></div>
+        <div class="meta"><div class="nm">Cool white</div><div class="hex">#EDF1FA</div>
+          <div class="use">All primary text. Never pure white.</div></div></div>
+      <div class="sw"><div class="chip" style="background:#8B93A8"></div>
+        <div class="meta"><div class="nm">Muted</div><div class="hex">#8B93A8</div>
+          <div class="use">Source lines, timestamps, captions.</div></div></div>
+      <div class="sw"><div class="chip" style="background:#3E86FF"></div>
+        <div class="meta"><div class="nm">Signal Blue</div><div class="hex">#3E86FF</div>
+          <div class="use">Gradient start.</div></div></div>
+      <div class="sw"><div class="chip" style="background:#63C6F5"></div>
+        <div class="meta"><div class="nm">Sky Cyan</div><div class="hex">#63C6F5</div>
+          <div class="use">Gradient end.</div></div></div>
+      <div class="sw sig"><div class="chip"></div>
+        <div class="meta"><div class="nm">Signal gradient</div><div class="hex">135° · blue → cyan</div>
+          <div class="use">Tile, pills, keyword highlights. Use sparingly.</div></div></div>
+    </div>
+  </section>
+
+  <!-- 3 · TYPE -->
+  <section>
+    <div class="sec-head">
+      <span class="sec-num">03</span>
+      <div>
+        <h2 class="sec-title">Typography</h2>
+        <p class="sec-note">Two faces, two jobs. <b style="color:var(--text)">Anton</b> shouts the headline;
+          <b style="color:var(--text)">Manrope</b> handles everything a human reads calmly.</p>
+      </div>
+    </div>
+    <div class="type-grid">
+      <div class="spec">
+        <div class="role">Display</div>
+        <div class="fam">Anton · one weight · UPPERCASE</div>
+        <div class="big-anton signal-text">Know First</div>
+        <div class="glyphs">A B C D E F G H I J K L M N O P Q R S T U V W X Y Z 0 1 2 3 4 5 6 7 8 9</div>
+        <div class="scale">
+          <div><span>Card headline</span><span>96–132 px · line-height 0.92</span></div>
+          <div><span>Fact stat</span><span>up to 300 px</span></div>
+          <div><span>Wordmark / pills</span><span>tracking +0.01em</span></div>
+        </div>
+      </div>
+      <div class="spec">
+        <div class="role">Body &amp; utility</div>
+        <div class="fam">Manrope · 450 / 700 / 800</div>
+        <div class="big-man">Read calmly.</div>
+        <div class="man-weights">
+          <span style="font-weight:450">Regular 450 — caption body &amp; context.</span>
+          <span style="font-weight:700">Bold 700 — hooks &amp; CTA lines.</span>
+          <span style="font-weight:800">Extra 800 — the opening caption hook.</span>
+        </div>
+        <div class="scale">
+          <div><span>Caption body</span><span>18–20 px · line-height 1.55</span></div>
+          <div><span>Watermark</span><span>tracking +0.16em · uppercase</span></div>
+          <div><span>Source / tags</span><span>13–14 px · muted</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4 · VOICE -->
+  <section>
+    <div class="sec-head">
+      <span class="sec-num">04</span>
+      <div>
+        <h2 class="sec-title">Voice &amp; caption</h2>
+        <p class="sec-note">Punchy, curious, never cynical. Same four-part structure on every post so the
+          feed feels like one voice.</p>
+      </div>
+    </div>
+    <div class="voice">
+      <div class="cap-demo">
+        <div class="hook">💡 The Moon has water on its <em style="font-style:normal" class="signal-text">sunlit</em> side.</div>
+        <p>Scientists just confirmed water molecules on the Moon's daytime surface — not hidden in shadow,
+          but out in full sunlight. It changes the math for a future lunar base.</p>
+        <p class="cta">Follow @cantagio so you always know it first.</p>
+        <p class="tags">#cantagio #trending #didyouknow #space #moon #nasa #science #astronomy #world
+          #spacefacts #discovery #cantagionews</p>
+      </div>
+      <ul class="rules">
+        <li><span class="n">1</span><span><b>Hook</b> — one punchy line that matches the card headline. One emoji, max.</span></li>
+        <li><span class="n">2</span><span><b>Context</b> — one or two sentences with the surprising detail. Facts only.</span></li>
+        <li><span class="n">3</span><span><b>CTA</b> — always ask for a reaction: follow, comment, or tag a friend.</span></li>
+        <li><span class="n">4</span><span><b>Hashtags</b> — 12 total: 3 fixed (#cantagio #trending #didyouknow) + topical.</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 5 · POST TEMPLATES -->
+  <section>
+    <div class="sec-head">
+      <span class="sec-num">05</span>
+      <div>
+        <h2 class="sec-title">Post templates</h2>
+        <p class="sec-note">Three layouts, one identity. C-Tile logo top-left, category pill top-right, Anton
+          headline bottom-left, <b style="color:var(--text)">@cantagio</b> watermark centred. The renderer fills
+          these from live trends — the frame never changes, so every post is unmistakably Cantagio.</p>
+      </div>
+    </div>
+    <div class="cards">
+
+      <article class="card space">
+        <div class="bg"></div><div class="scrim"></div>
+        <div class="pad">
+          <div class="top">
+            <div class="brandtag">
+              <svg class="mark" viewBox="0 0 120 120" aria-hidden="true">
+                <rect x="8" y="8" width="104" height="104" rx="27" fill="url(#soft)"/>
+                <path d="M84.4 30.9 A38 38 0 1 0 84.4 89.1" fill="none" stroke="#0B1020" stroke-width="16" stroke-linecap="round"/></svg>
+              <b>Cantagio</b>
+            </div>
+            <span class="pill">Space</span>
+          </div>
+          <div class="body">
+            <h3>NASA found <span class="kw">water ice</span> on the Moon's sunlit surface</h3>
+            <div class="src">via NASA</div>
+          </div>
+        </div>
+        <div class="wm">@cantagio</div>
+      </article>
+
+      <article class="card fact">
+        <div class="bg"></div><div class="scrim"></div>
+        <div class="pad">
+          <div class="top">
+            <div class="brandtag">
+              <svg class="mark" viewBox="0 0 120 120" aria-hidden="true">
+                <rect x="8" y="8" width="104" height="104" rx="27" fill="url(#soft)"/>
+                <path d="M84.4 30.9 A38 38 0 1 0 84.4 89.1" fill="none" stroke="#0B1020" stroke-width="16" stroke-linecap="round"/></svg>
+              <b>Cantagio</b>
+            </div>
+            <span class="pill">Did you know</span>
+          </div>
+          <div class="body">
+            <div class="stat signal-text">8 min</div>
+            <h3 style="font-size:clamp(1.05rem,2.6vw,1.4rem);margin-top:6px">is how long sunlight takes to reach Earth</h3>
+          </div>
+        </div>
+        <div class="wm">@cantagio</div>
+      </article>
+
+      <article class="card question">
+        <div class="bg"></div><div class="scrim"></div>
+        <div class="pad">
+          <div class="top">
+            <div class="brandtag">
+              <svg class="mark" viewBox="0 0 120 120" aria-hidden="true">
+                <rect x="8" y="8" width="104" height="104" rx="27" fill="url(#soft)"/>
+                <path d="M84.4 30.9 A38 38 0 1 0 84.4 89.1" fill="none" stroke="#0B1020" stroke-width="16" stroke-linecap="round"/></svg>
+              <b>Cantagio</b>
+            </div>
+            <span class="pill">Trending</span>
+          </div>
+          <div class="body">
+            <h3>Would you take a <span class="kw">one-way</span> trip to Mars?</h3>
+            <div class="src" style="color:var(--text);font-weight:700;letter-spacing:0.04em">Comment 👇</div>
+          </div>
+        </div>
+        <div class="wm">@cantagio</div>
+      </article>
+
+    </div>
+  </section>
+
+  <footer>
+    <div>Asset files live in <code>cantagio/brand/</code></div>
+    <div class="files">
+      <span><code>logo-mark.svg</code> · <code>logo-wordmark.svg</code> · <code>avatar.svg</code> — vector logo set (C Tile)</span>
+      <span><code>brand.ts</code> — design tokens (single source of truth for the pipeline)</span>
+      <span><code>fonts/anton.woff2</code> · <code>fonts/manrope.woff2</code> — embedded typefaces</span>
+    </div>
+  </footer>
+
+</main>
