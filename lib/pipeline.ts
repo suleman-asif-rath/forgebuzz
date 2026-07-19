@@ -23,6 +23,7 @@ export async function runGenerate(): Promise<GenerateSummary> {
     usedFingerprints: used,
     categories: settings.categories,
     extraBlockedWords: settings.extraBlockedWords,
+    maxAgeHours: settings.maxAgeHours,
   });
 
   const times = scheduleTimes(settings.slotHours, settings.timezone, picks.length);

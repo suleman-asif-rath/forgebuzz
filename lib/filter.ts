@@ -7,24 +7,39 @@ export interface PickOptions {
   usedFingerprints: Set<string>;
   categories: Record<string, CategorySetting>; // enabled + weight per category
   extraBlockedWords?: string[];
+  maxAgeHours?: number; // news-like items older than this are dropped
 }
 
-/** Filter for safety + quality, drop duplicates / used / disabled-category
- *  topics, then pick `count` items using category priority weights. */
+/** Filter for safety + quality + freshness, drop duplicates / used /
+ *  disabled-category topics, then pick `count` items by category priority. */
 export function pickTrends(
   trends: Trend[],
-  { count, usedFingerprints, categories, extraBlockedWords = [] }: PickOptions,
+  { count, usedFingerprints, categories, extraBlockedWords = [], maxAgeHours = 18 }: PickOptions,
 ): { picks: Trend[]; skipped: string[] } {
   const skipped: string[] = [];
   const enabled = (cat: string) => categories[cat]?.enabled ?? true;
+  const now = Date.now();
+  const maxAgeMs = maxAgeHours * 3600_000;
 
-  // 1. Safety + quality + enabled-category filter.
+  // Timeless facts are exempt; time-sensitive news must be recent AND dated.
+  const isFresh = (t: Trend): boolean => {
+    if (t.evergreen) return true;
+    if (!t.publishedAt) return false; // no timestamp on news-like item -> can't trust it's fresh
+    const age = now - Date.parse(t.publishedAt);
+    return Number.isFinite(age) && age >= 0 && age <= maxAgeMs;
+  };
+
+  // 1. Safety + quality + freshness + enabled-category filter.
   const safe = trends.filter((t) => {
     if (isBlocked(t.title, extraBlockedWords)) {
       skipped.push(`blocked (safety): ${t.title}`);
       return false;
     }
     if (!enabled(t.category)) return false; // topic area switched off
+    if (!isFresh(t)) {
+      skipped.push(`too old (> ${maxAgeHours}h): ${t.title}`);
+      return false;
+    }
     if (t.title.length < 15 || t.title.length > 180) return false;
     if (/^\s*(ama|megathread|weekly|daily thread)/i.test(t.title)) return false;
     return true;

@@ -100,6 +100,16 @@ export default function SettingsForm({ initial }: { initial: Settings }) {
           <input type="text" value={s.timezone} onChange={(e) => set("timezone", e.target.value)} />
           <span className="sub">IANA name, e.g. Asia/Karachi, Europe/London, America/New_York.</span>
         </div>
+
+        <div className="field">
+          <label>News freshness (max age, hours)</label>
+          <input type="number" min={3} max={72} value={s.maxAgeHours}
+            onChange={(e) => set("maxAgeHours", Math.max(3, Math.min(72, Number(e.target.value) || 18)))} />
+          <span className="sub">
+            News-like posts must have happened within this many hours (12 to 18 recommended).
+            Timeless "Did You Know" facts are exempt.
+          </span>
+        </div>
       </div>
 
       {/* Areas of interest */}
@@ -130,6 +140,7 @@ export default function SettingsForm({ initial }: { initial: Settings }) {
         <h2>Trend sources</h2>
         <div className="hint">Where topics are pulled from.</div>
         {([
+          ["googlenews", "Google News", "Fresh world, tech, entertainment & sports headlines"],
           ["reddit", "Reddit", "Popular posts from safe subreddits"],
           ["rss", "News RSS", "Space.com, ScienceDaily, The Verge"],
           ["hackernews", "Hacker News", "Trending tech stories"],

@@ -126,7 +126,9 @@ the pipeline on its **next run**, so there is nothing to redeploy.
     time slots, and your timezone.
   - **Areas of interest**: turn each topic area on or off and set how often it
     appears (a priority from Rare to Often).
-  - **Trend sources**: toggle Reddit, News RSS, and Hacker News.
+  - **News freshness**: a max-age (hours) so news-like posts must be recent
+    (12 to 18 recommended); timeless "Did You Know" facts are exempt.
+  - **Trend sources**: toggle Google News, Reddit, News RSS, and Hacker News.
   - **Voice**: your caption call-to-action and the core hashtags on every post.
   - **Safety net**: add your own extra blocked words on top of the built-in list.
 - **Queue** — every generated post with its status and scheduled time; delete
@@ -145,8 +147,8 @@ posted, while the queue keeps filling so you can resume any time.
 ```
 GitHub Actions (timer)
   -> POST /api/generate   (morning)
-       fetch trends (Reddit, RSS, Hacker News)
-       -> safety filter + de-dupe + rank + pick 6
+       fetch trends (Google News, Reddit, RSS, Hacker News)
+       -> safety filter + freshness (max-age) + de-dupe + rank + pick 6
        -> Gemini writes headline + caption + hashtags
        -> Pexels background
        -> @vercel/og renders the branded card (PNG)

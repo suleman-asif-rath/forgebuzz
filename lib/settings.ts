@@ -13,8 +13,9 @@ export function defaultSettings(): Settings {
     postsPerDay: config.postsPerDay,
     slotHours: [9, 11, 13, 15, 17, 19, 21],
     timezone: "Asia/Karachi",
+    maxAgeHours: 18,
     categories,
-    sources: { reddit: true, rss: true, hackernews: true },
+    sources: { reddit: true, rss: true, hackernews: true, googlenews: true },
     voice: {
       cta: brand.caption.cta,
       hashtagsCore: [...brand.caption.hashtagsCore],
@@ -32,6 +33,7 @@ function merge(stored: Partial<Settings> | null): Settings {
     postsPerDay: clampInt(stored.postsPerDay ?? d.postsPerDay, 1, 12),
     slotHours: Array.isArray(stored.slotHours) && stored.slotHours.length ? stored.slotHours : d.slotHours,
     timezone: stored.timezone || d.timezone,
+    maxAgeHours: clampInt(stored.maxAgeHours ?? d.maxAgeHours, 3, 72),
     categories: { ...d.categories, ...(stored.categories ?? {}) },
     sources: { ...d.sources, ...(stored.sources ?? {}) },
     voice: {

@@ -9,6 +9,8 @@ export interface Trend {
   url: string;
   score: number; // relative popularity within its source
   category: string; // mapped ForgeBuzz category (e.g. "SPACE")
+  publishedAt?: string; // ISO time the item was published, when the source gives it
+  evergreen?: boolean; // timeless (facts/trivia): exempt from the freshness filter
 }
 
 /** The card + caption content produced by the copywriter. */
@@ -66,8 +68,9 @@ export interface Settings {
   postsPerDay: number; // 1..12
   slotHours: number[]; // posting hours in `timezone`, e.g. [9,12,15,18,21]
   timezone: string; // IANA tz, e.g. "Asia/Karachi"
+  maxAgeHours: number; // news-like topics older than this are dropped (facts exempt)
   categories: Record<string, CategorySetting>; // keyed by brand category
-  sources: { reddit: boolean; rss: boolean; hackernews: boolean };
+  sources: { reddit: boolean; rss: boolean; hackernews: boolean; googlenews: boolean };
   voice: { cta: string; hashtagsCore: string[] };
   extraBlockedWords: string[]; // added to the built-in safety net
 }
