@@ -60,3 +60,73 @@ a { color: inherit; }
 
 .empty { border: 1px dashed var(--line); border-radius: 16px; padding: 40px; text-align: center;
   color: var(--muted); }
+
+/* nav */
+.nav { display: flex; align-items: center; gap: 8px; margin: 20px 0 26px; flex-wrap: wrap; }
+.nav a { text-decoration: none; padding: 9px 16px; border-radius: 999px; font-weight: 700;
+  font-size: 0.92rem; color: var(--muted); border: 1px solid transparent; }
+.nav a:hover { color: var(--text); }
+.nav a.active { color: var(--text); background: var(--surface); border-color: var(--line); }
+
+/* master posting toggle (overview) */
+.master { display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  border: 1px solid var(--line); border-radius: 16px; padding: 18px 20px; margin: 8px 0 24px;
+  background: var(--surface); }
+.master .lbl { font-weight: 800; font-size: 1.05rem; }
+.master .desc { color: var(--muted); font-size: 0.86rem; margin-top: 2px; }
+.master .state { font-weight: 800; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; }
+.master .state.on { color: #58e08a; }
+.master .state.off { color: #ff6b7d; }
+
+/* toggle switch */
+.switch { position: relative; display: inline-block; width: 52px; height: 30px; flex: none; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.switch .track { position: absolute; inset: 0; background: #2a3350; border-radius: 999px;
+  transition: background 0.15s; cursor: pointer; }
+.switch .track::before { content: ""; position: absolute; height: 22px; width: 22px; left: 4px; top: 4px;
+  background: #fff; border-radius: 50%; transition: transform 0.15s; }
+.switch input:checked + .track { background-image: var(--signal); }
+.switch input:checked + .track::before { transform: translateX(22px); }
+
+/* settings form */
+.section { background: var(--surface); border: 1px solid var(--line); border-radius: 16px;
+  padding: 22px; margin-bottom: 18px; }
+.section h2 { font-size: 1.05rem; font-weight: 800; margin-bottom: 4px; }
+.section .hint { color: var(--muted); font-size: 0.85rem; margin-bottom: 16px; }
+.field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+.field > label { font-size: 0.82rem; font-weight: 700; color: var(--text); }
+.field input[type="text"], .field input[type="number"], .field textarea {
+  background: var(--ink); border: 1px solid var(--line); border-radius: 10px; color: var(--text);
+  padding: 10px 12px; font-size: 0.95rem; font-family: inherit; }
+.field textarea { min-height: 74px; resize: vertical; }
+.field .sub { color: var(--muted); font-size: 0.78rem; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { border: 1px solid var(--line); border-radius: 999px; padding: 7px 13px; font-size: 0.85rem;
+  color: var(--muted); cursor: pointer; user-select: none; background: var(--ink);
+  font-variant-numeric: tabular-nums; }
+.chip.on { color: #071022; background-image: var(--signal); border-color: transparent; font-weight: 700; }
+
+.catrow { display: flex; align-items: center; gap: 14px; padding: 12px 0; border-top: 1px solid var(--line); }
+.catrow:first-child { border-top: none; }
+.catrow .cname { font-weight: 700; min-width: 130px; }
+.catrow .range { flex: 1; display: flex; align-items: center; gap: 10px; }
+.catrow input[type="range"] { flex: 1; accent-color: var(--sig-to); }
+.catrow .wlabel { font-size: 0.78rem; color: var(--muted); min-width: 74px; text-align: right; }
+.catrow.off { opacity: 0.45; }
+
+.togglerow { display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 11px 0; border-top: 1px solid var(--line); }
+.togglerow:first-child { border-top: none; }
+.togglerow .t-lbl { font-weight: 600; }
+.togglerow .t-sub { color: var(--muted); font-size: 0.8rem; }
+
+.savebar { position: sticky; bottom: 0; display: flex; align-items: center; gap: 14px;
+  padding: 16px 0; background: linear-gradient(0deg, var(--ink) 70%, transparent); }
+.saved { color: #58e08a; font-size: 0.9rem; font-weight: 700; }
+
+/* queue delete */
+.post .qbtn { width: 100%; border: none; border-top: 1px solid var(--line); background: transparent;
+  color: #ff6b7d; padding: 10px; font-weight: 700; font-size: 0.82rem; cursor: pointer; }
+.post .qbtn:hover { background: rgba(255,107,125,0.08); }
+.post .qbtn:disabled { opacity: 0.5; cursor: default; }

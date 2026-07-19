@@ -30,6 +30,14 @@ create table if not exists used_topics (
   used_at timestamptz not null default now()
 );
 
+-- Dashboard settings (single row, id = 'default'). Stored as JSON so new
+-- options can be added without a migration.
+create table if not exists settings (
+  id text primary key default 'default',
+  data jsonb not null,
+  updated_at timestamptz not null default now()
+);
+
 -- The app connects with the SERVICE key (server-side only), which bypasses
 -- Row Level Security, so no policies are required for the pipeline itself.
 -- Keep the service key secret (Vercel env var only). If you later add a

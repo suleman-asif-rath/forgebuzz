@@ -1,4 +1,5 @@
-import { config, isDryRun } from "./config";
+import { isDryRun } from "./config";
+import { getSettings } from "./settings";
 import { fetchAllTrends } from "./trends";
 import { pickTrends } from "./filter";
 import { writeCard, assembleCaption } from "./copywriter";
@@ -6,39 +7,25 @@ import { findBackground } from "./pexels";
 import { renderCardPng } from "./render";
 import { getStore } from "./store";
 import { publishBoth } from "./meta";
+import { scheduleTimes } from "./schedule";
 import { newId, fingerprint } from "./util";
 import type { GenerateSummary, PostRow, PublishSummary } from "./types";
 
-// Posting slots across the day (server-local hours). The morning "generate"
-// run fills these; the hourly "publish" run sends whichever are due.
-const SLOT_HOURS = [9, 11, 13, 15, 17, 19, 21];
-
-function scheduleTimes(n: number): string[] {
-  const now = new Date();
-  const out: string[] = [];
-  for (let i = 0; i < n; i++) {
-    const h = SLOT_HOURS[i % SLOT_HOURS.length];
-    const d = new Date(now);
-    d.setHours(h, 0, 0, 0);
-    // If a slot already passed today it stays in the past, so publish picks it
-    // up immediately (good for a first run / catch-up).
-    out.push(d.toISOString());
-  }
-  return out;
-}
-
 export async function runGenerate(): Promise<GenerateSummary> {
   const store = getStore();
+  const settings = await getSettings();
   const mode = isDryRun() ? "dry-run" : "live";
 
-  const trends = await fetchAllTrends();
+  const trends = await fetchAllTrends(settings.sources);
   const used = await store.getUsedFingerprints();
   const { picks, skipped } = pickTrends(trends, {
-    count: config.postsPerDay,
+    count: settings.postsPerDay,
     usedFingerprints: used,
+    categories: settings.categories,
+    extraBlockedWords: settings.extraBlockedWords,
   });
 
-  const times = scheduleTimes(picks.length);
+  const times = scheduleTimes(settings.slotHours, settings.timezone, picks.length);
   const rows: PostRow[] = [];
 
   for (let i = 0; i < picks.length; i++) {
@@ -49,6 +36,10 @@ export async function runGenerate(): Promise<GenerateSummary> {
         skipped.push(`copywriter skipped: ${t.title}`);
         continue;
       }
+      // Apply the dashboard voice settings.
+      content.cta = settings.voice.cta;
+      content.hashtags = [...new Set([...settings.voice.hashtagsCore, ...content.hashtags])].slice(0, 12);
+
       const backgroundUrl = await findBackground(content.backgroundKeyword);
       const png = await renderCardPng({
         template: content.template,
@@ -90,9 +81,15 @@ export async function runGenerate(): Promise<GenerateSummary> {
 
 export async function runPublish(): Promise<PublishSummary> {
   const store = getStore();
-  const mode = isDryRun() ? "dry-run" : "live";
+  const settings = await getSettings();
   const due = await store.getDue(new Date().toISOString());
 
+  // Master switch: paused means the queue keeps building but nothing is sent.
+  if (!settings.postingEnabled) {
+    return { mode: "paused", due: due.length, posted: [], failed: [] };
+  }
+
+  const mode = isDryRun() ? "dry-run" : "live";
   const posted: PublishSummary["posted"] = [];
   const failed: PublishSummary["failed"] = [];
 

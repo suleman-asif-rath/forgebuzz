@@ -23,12 +23,21 @@ export const BLOCKED_TERMS: string[] = [
   "crypto scam", "pump and dump", "get rich",
 ];
 
-const blockedRe = new RegExp(
-  "\\b(" + BLOCKED_TERMS.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|") + ")\\b",
-  "i",
-);
+function esc(t: string): string {
+  return t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
 
-/** True when a title should be dropped for safety. */
-export function isBlocked(title: string): boolean {
-  return blockedRe.test(title);
+function buildRe(terms: string[]): RegExp {
+  return new RegExp("\\b(" + terms.map(esc).join("|") + ")\\b", "i");
+}
+
+const blockedRe = buildRe(BLOCKED_TERMS);
+
+/** True when a title should be dropped for safety.
+ *  `extra` adds the user's own blocked words from Settings. */
+export function isBlocked(title: string, extra: string[] = []): boolean {
+  if (blockedRe.test(title)) return true;
+  const clean = extra.map((w) => w.trim()).filter(Boolean);
+  if (clean.length && buildRe(clean).test(title)) return true;
+  return false;
 }

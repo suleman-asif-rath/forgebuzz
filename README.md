@@ -113,6 +113,33 @@ You can also run them by hand from the repo's **Actions** tab.
 
 ---
 
+## The control room (dashboard)
+
+Open the app (locally `http://localhost:3000`, or your Vercel URL) to manage the
+whole brand without touching code. Changes are saved to the store and read by
+the pipeline on its **next run**, so there is nothing to redeploy.
+
+- **Overview** — service status, today's counts (in queue / posted / failed),
+  the big **Posting ON / PAUSED** switch, and the Generate / Publish buttons.
+- **Settings**
+  - **Posting & frequency**: master pause switch, posts per day, the posting
+    time slots, and your timezone.
+  - **Areas of interest**: turn each topic area on or off and set how often it
+    appears (a priority from Rare to Often).
+  - **Trend sources**: toggle Reddit, News RSS, and Hacker News.
+  - **Voice**: your caption call-to-action and the core hashtags on every post.
+  - **Safety net**: add your own extra blocked words on top of the built-in list.
+- **Queue** — every generated post with its status and scheduled time; delete
+  any you do not want.
+
+The **master switch** is the important one: flip it to PAUSED and nothing gets
+posted, while the queue keeps filling so you can resume any time.
+
+> Privacy in production: the dashboard is a public URL by default. Turn on
+> **Vercel Authentication** (Project Settings -> Deployment Protection) so only
+> you can open it, and add a **Protection Bypass for Automation** token so the
+> GitHub Actions timers can still reach the endpoints.
+
 ## How it works
 
 ```

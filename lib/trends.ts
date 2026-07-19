@@ -117,12 +117,20 @@ function normalizePerSource(items: Trend[]): Trend[] {
   return items.map((i) => ({ ...i, score: Math.round((i.score / max) * 100) }));
 }
 
-/** Pull every source in parallel; a failing source is skipped, not fatal. */
-export async function fetchAllTrends(): Promise<Trend[]> {
+export interface SourceToggles {
+  reddit: boolean;
+  rss: boolean;
+  hackernews: boolean;
+}
+
+/** Pull the enabled sources in parallel; a failing source is skipped, not fatal. */
+export async function fetchAllTrends(
+  sources: SourceToggles = { reddit: true, rss: true, hackernews: true },
+): Promise<Trend[]> {
   const [reddit, hn, rss] = await Promise.all([
-    fetchReddit(),
-    fetchHackerNews(),
-    fetchRss(),
+    sources.reddit ? fetchReddit() : Promise.resolve([]),
+    sources.hackernews ? fetchHackerNews() : Promise.resolve([]),
+    sources.rss ? fetchRss() : Promise.resolve([]),
   ]);
   return [...reddit, ...hn, ...rss];
 }

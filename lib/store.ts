@@ -6,7 +6,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { config } from "./config";
-import type { PostRow } from "./types";
+import type { PostRow, Settings } from "./types";
 
 export interface Store {
   saveImage(id: string, png: Buffer): Promise<{ imagePath: string; imageUrl: string }>;
@@ -17,6 +17,9 @@ export interface Store {
   getDue(nowISO: string): Promise<PostRow[]>;
   markPosted(id: string, ids: { fbId?: string | null; igId?: string | null }): Promise<void>;
   markFailed(id: string, error: string): Promise<void>;
+  deletePost(id: string): Promise<void>;
+  getSettings(): Promise<Partial<Settings> | null>;
+  saveSettings(settings: Settings): Promise<void>;
 }
 
 // ---------------------------------------------------------------- file store
@@ -24,6 +27,7 @@ const DATA_DIR = path.join(process.cwd(), "data");
 const PUB_DIR = path.join(process.cwd(), "public", "generated");
 const QUEUE = path.join(DATA_DIR, "queue.json");
 const USED = path.join(DATA_DIR, "used.json");
+const SETTINGS = path.join(DATA_DIR, "settings.json");
 
 async function readJson<T>(file: string, fallback: T): Promise<T> {
   try {
@@ -89,6 +93,16 @@ class FileStore implements Store {
       r.status = "failed";
       r.error = error;
     });
+  }
+  async deletePost(id: string) {
+    const q = await readJson<PostRow[]>(QUEUE, []);
+    await writeJson(QUEUE, q.filter((r) => r.id !== id));
+  }
+  async getSettings() {
+    return readJson<Partial<Settings> | null>(SETTINGS, null);
+  }
+  async saveSettings(settings: Settings) {
+    await writeJson(SETTINGS, settings);
   }
 }
 
@@ -156,6 +170,22 @@ class SupabaseStore implements Store {
   async markFailed(id: string, error: string) {
     const db = await this.db();
     await db.from("posts").update({ status: "failed", error }).eq("id", id);
+  }
+  async deletePost(id: string) {
+    const db = await this.db();
+    await db.from("posts").delete().eq("id", id);
+  }
+  async getSettings() {
+    const db = await this.db();
+    const { data } = await db.from("settings").select("data").eq("id", "default").maybeSingle();
+    return (data?.data as Partial<Settings> | undefined) ?? null;
+  }
+  async saveSettings(settings: Settings) {
+    const db = await this.db();
+    const { error } = await db
+      .from("settings")
+      .upsert({ id: "default", data: settings, updated_at: new Date().toISOString() }, { onConflict: "id" });
+    if (error) throw new Error(`saveSettings: ${error.message}`);
   }
 }
 

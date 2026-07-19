@@ -55,6 +55,23 @@ export interface PostRow {
   error?: string | null;
 }
 
+// --- Settings (editable from the dashboard, read live by the pipeline) ---
+export interface CategorySetting {
+  enabled: boolean;
+  weight: number; // 1 (rare) .. 5 (often); relative priority within enabled cats
+}
+
+export interface Settings {
+  postingEnabled: boolean; // master switch: false pauses ALL publishing
+  postsPerDay: number; // 1..12
+  slotHours: number[]; // posting hours in `timezone`, e.g. [9,12,15,18,21]
+  timezone: string; // IANA tz, e.g. "Asia/Karachi"
+  categories: Record<string, CategorySetting>; // keyed by brand category
+  sources: { reddit: boolean; rss: boolean; hackernews: boolean };
+  voice: { cta: string; hashtagsCore: string[] };
+  extraBlockedWords: string[]; // added to the built-in safety net
+}
+
 export interface GenerateSummary {
   mode: "dry-run" | "live";
   picked: number;
@@ -63,7 +80,7 @@ export interface GenerateSummary {
 }
 
 export interface PublishSummary {
-  mode: "dry-run" | "live";
+  mode: "dry-run" | "live" | "paused";
   due: number;
   posted: { id: string; fbId?: string | null; igId?: string | null }[];
   failed: { id: string; error: string }[];

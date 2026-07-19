@@ -1,26 +1,30 @@
-import type { Trend } from "./types";
+import type { Trend, CategorySetting } from "./types";
 import { isBlocked } from "./blocklist";
 import { fingerprint } from "./util";
 
 export interface PickOptions {
   count: number;
   usedFingerprints: Set<string>;
+  categories: Record<string, CategorySetting>; // enabled + weight per category
+  extraBlockedWords?: string[];
 }
 
-/** Filter for safety + quality, drop duplicates and already-used topics,
- *  then pick `count` items with variety across categories. */
+/** Filter for safety + quality, drop duplicates / used / disabled-category
+ *  topics, then pick `count` items using category priority weights. */
 export function pickTrends(
   trends: Trend[],
-  { count, usedFingerprints }: PickOptions,
+  { count, usedFingerprints, categories, extraBlockedWords = [] }: PickOptions,
 ): { picks: Trend[]; skipped: string[] } {
   const skipped: string[] = [];
+  const enabled = (cat: string) => categories[cat]?.enabled ?? true;
 
-  // 1. Safety + basic quality filter.
+  // 1. Safety + quality + enabled-category filter.
   const safe = trends.filter((t) => {
-    if (isBlocked(t.title)) {
+    if (isBlocked(t.title, extraBlockedWords)) {
       skipped.push(`blocked (safety): ${t.title}`);
       return false;
     }
+    if (!enabled(t.category)) return false; // topic area switched off
     if (t.title.length < 15 || t.title.length > 180) return false;
     if (/^\s*(ama|megathread|weekly|daily thread)/i.test(t.title)) return false;
     return true;
@@ -30,46 +34,47 @@ export function pickTrends(
   const byFp = new Map<string, Trend>();
   for (const t of safe) {
     const fp = fingerprint(t.title);
-    if (usedFingerprints.has(fp)) continue; // already posted before
+    if (usedFingerprints.has(fp)) continue;
     const existing = byFp.get(fp);
     if (!existing || t.score > existing.score) byFp.set(fp, t);
   }
   const unique = [...byFp.values()].sort((a, b) => b.score - a.score);
 
-  // 3. Pick with category spread: one pass round-robin by category (best of
-  //    each), then fill remaining slots by raw score.
+  // 3. Group by category (each sorted by score desc).
   const byCat = new Map<string, Trend[]>();
   for (const t of unique) {
     const arr = byCat.get(t.category) ?? [];
     arr.push(t);
     byCat.set(t.category, arr);
   }
+
+  // 4. Weighted pick: each slot chooses a category with probability
+  //    proportional to its priority weight, then takes that category's best
+  //    remaining topic. Higher weight => appears more often.
   const picks: Trend[] = [];
   const seen = new Set<string>();
-  const cats = [...byCat.keys()];
-  let ci = 0;
-  while (picks.length < count && cats.length > 0) {
-    const cat = cats[ci % cats.length];
-    const arr = byCat.get(cat)!;
-    const next = arr.shift();
+  while (picks.length < count) {
+    const avail = [...byCat.entries()].filter(([, arr]) => arr.length > 0);
+    if (avail.length === 0) break;
+    const weighted = avail.map(([cat, arr]) => ({
+      cat,
+      arr,
+      weight: Math.max(1, categories[cat]?.weight ?? 3),
+    }));
+    const total = weighted.reduce((s, w) => s + w.weight, 0);
+    let r = Math.random() * total;
+    let chosen = weighted[0];
+    for (const w of weighted) {
+      r -= w.weight;
+      if (r <= 0) { chosen = w; break; }
+    }
+    const next = chosen.arr.shift();
     if (next) {
       const fp = fingerprint(next.title);
       if (!seen.has(fp)) {
         seen.add(fp);
         picks.push(next);
       }
-    }
-    if (arr.length === 0) cats.splice(cats.indexOf(cat), 1);
-    else ci++;
-    if (cats.length === 0) break;
-  }
-  // 4. Top up from the flat list if categories ran dry.
-  for (const t of unique) {
-    if (picks.length >= count) break;
-    const fp = fingerprint(t.title);
-    if (!seen.has(fp)) {
-      seen.add(fp);
-      picks.push(t);
     }
   }
 
