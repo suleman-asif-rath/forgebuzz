@@ -5,24 +5,25 @@
  * Changing a value here changes every future post. Do not hard-code brand
  * values anywhere else — import from here so branding can never drift.
  *
- * Identity: "Cantagio" surfaces what's happening in the world and makes it
- * worth knowing. The mark is the "C Tile" — the letter C knocked out of a
- * soft Signal-Blue rounded tile. Calm, clear, knowledge-forward.
+ * Identity: "ForgeBuzz" forges what's happening into content worth the buzz.
+ * The mark is a spark (forge sparks + viral buzz) knocked out of a soft
+ * Signal-Blue rounded tile. Calm base, energetic spark.
  */
 
 export const brand = {
-  name: "Cantagio",
-  handle: "@cantagio",
+  name: "ForgeBuzz",
+  handle: "@forgebuzz",
   tagline: "Know it before it's everywhere.",
 
   /** Logo -------------------------------------------------------------
-   *  Primary mark = the C Tile (see brand/logo-mark.svg). It doubles as the
-   *  profile avatar (brand/avatar.svg). Horizontal lockup = brand/logo-wordmark.svg. */
+   *  Primary mark = the Spark Tile (see brand/logo-mark.svg). It doubles as the
+   *  profile avatar (brand/avatar.svg). Horizontal lockup = brand/logo-wordmark.svg.
+   *  Wordmark = "Forge" in text colour + "Buzz" in the signal accent. */
   logo: {
     mark: "brand/logo-mark.svg",
     wordmark: "brand/logo-wordmark.svg",
     avatar: "brand/avatar.svg",
-    style: "C knocked out of a soft-blue rounded tile",
+    style: "spark knocked out of a soft-blue rounded tile",
   },
 
   /** Colours ---------------------------------------------------------- */
@@ -90,9 +91,9 @@ export const brand = {
     //   2) 1–2 sentences of context / the interesting detail
     //   3) CTA line (ask for a reaction: follow / comment / tag)
     //   4) blank line, then the fixed hashtag block
-    cta: "Follow @cantagio so you always know it first.",
+    cta: "Follow @forgebuzz so you always know it first.",
     maxContextSentences: 2,
-    hashtagsCore: ["#cantagio", "#trending", "#didyouknow"],
+    hashtagsCore: ["#forgebuzz", "#trending", "#didyouknow"],
     hashtagsBySize: 12, // total hashtags per post (core + topical)
   },
 } as const;

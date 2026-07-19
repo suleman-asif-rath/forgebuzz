@@ -14,7 +14,7 @@ export default function Nav() {
   return (
     <>
       <div className="topbar">
-        <svg className="logo" viewBox="0 0 120 120" aria-label="Cantagio">
+        <svg className="logo" viewBox="0 0 120 120" aria-label="ForgeBuzz">
           <defs>
             <linearGradient id="navg" x1="0" y1="1" x2="1" y2="0">
               <stop offset="0" stopColor="#3E86FF" />
@@ -22,10 +22,10 @@ export default function Nav() {
             </linearGradient>
           </defs>
           <rect x="8" y="8" width="104" height="104" rx="27" fill="url(#navg)" />
-          <path d="M84.4 30.9 A38 38 0 1 0 84.4 89.1" fill="none" stroke="#0B1020" strokeWidth="15" strokeLinecap="round" />
+          <path d="M60 22 C 62 48 72 58 98 60 C 72 62 62 72 60 98 C 58 72 48 62 22 60 C 48 58 58 48 60 22 Z" fill="#0B1020" />
         </svg>
         <div>
-          <div className="brandname">Cantagio Control Room</div>
+          <div className="brandname">ForgeBuzz Control Room</div>
           <div className="tag">Manage your brand: frequency, topics, safety, queue</div>
         </div>
       </div>

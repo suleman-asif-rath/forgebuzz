@@ -1,4 +1,4 @@
-// Shared shapes for the Cantagio pipeline.
+// Shared shapes for the ForgeBuzz pipeline.
 
 export type TemplateKind = "headline" | "fact" | "question";
 
@@ -8,7 +8,7 @@ export interface Trend {
   source: string; // e.g. "reddit r/space", "Hacker News"
   url: string;
   score: number; // relative popularity within its source
-  category: string; // mapped Cantagio category (e.g. "SPACE")
+  category: string; // mapped ForgeBuzz category (e.g. "SPACE")
 }
 
 /** The card + caption content produced by the copywriter. */

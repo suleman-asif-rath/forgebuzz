@@ -1,8 +1,8 @@
 {
-  "name": "cantagio",
+  "name": "forgebuzz",
   "version": "0.1.0",
   "private": true,
-  "description": "Automated Instagram/Facebook branded-content platform for Cantagio",
+  "description": "Automated Instagram/Facebook branded-content platform for ForgeBuzz",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

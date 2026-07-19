@@ -1,7 +1,7 @@
 import Parser from "rss-parser";
 import type { Trend } from "./types";
 
-const UA = "cantagio-bot/1.0 (branded content aggregator)";
+const UA = "forgebuzz-bot/1.0 (branded content aggregator)";
 const TIMEOUT = 12_000;
 
 async function getJson(url: string): Promise<any> {
@@ -14,7 +14,7 @@ async function getJson(url: string): Promise<any> {
 }
 
 // --- Reddit -------------------------------------------------------
-// Each entry maps a subreddit to a Cantagio category. All are "lighter viral".
+// Each entry maps a subreddit to a ForgeBuzz category. All are "lighter viral".
 const SUBREDDITS: { sub: string; category: string }[] = [
   { sub: "todayilearned", category: "DID YOU KNOW" },
   { sub: "space", category: "SPACE" },

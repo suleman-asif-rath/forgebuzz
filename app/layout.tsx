@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Cantagio — Control Room",
-  description: "Automated branded-content pipeline for @cantagio",
+  title: "ForgeBuzz — Control Room",
+  description: "Automated branded-content pipeline for @forgebuzz",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

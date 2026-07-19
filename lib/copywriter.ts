@@ -54,7 +54,7 @@ function localWrite(t: Trend): CardContent {
 
 function buildPrompt(t: Trend): string {
   return [
-    `You write viral Instagram posts for "Cantagio" (@cantagio), a page sharing`,
+    `You write viral Instagram posts for "ForgeBuzz" (@forgebuzz), a page sharing`,
     `light, positive, fascinating trending topics (pop culture, tech, sports,`,
     `entertainment, space, "did you know" facts). Tone: punchy, curious, upbeat,`,
     `never cynical, never political, never dark.`,
@@ -70,7 +70,7 @@ function buildPrompt(t: Trend): string {
     `  "captionHook": string,     // 1 line, may use ONE emoji`,
     `  "captionContext": string,  // 1-2 sentences of the interesting detail`,
     `  "cta": string,             // ask for a reaction (follow/comment/tag)`,
-    `  "hashtags": string[],      // exactly 12, start with #cantagio #trending #didyouknow`,
+    `  "hashtags": string[],      // exactly 12, start with #forgebuzz #trending #didyouknow`,
     `  "backgroundKeyword": string // 1-3 words to find a matching stock photo`,
     `}`,
     `If the topic is sensitive, tragic, political or adult, return {"skip": true}.`,

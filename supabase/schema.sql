@@ -1,6 +1,6 @@
--- Cantagio Supabase schema.
+-- ForgeBuzz Supabase schema.
 -- Run this in the Supabase SQL editor once, then create a PUBLIC storage
--- bucket named "cantagio" (Storage -> New bucket -> Public).
+-- bucket named "forgebuzz" (Storage -> New bucket -> Public).
 
 create table if not exists posts (
   id text primary key,

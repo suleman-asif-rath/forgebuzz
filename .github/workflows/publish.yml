@@ -1,4 +1,4 @@
-name: Cantagio · Publish due posts
+name: ForgeBuzz · Publish due posts
 
 # Runs hourly and publishes whichever queued posts are now due. Posts are
 # staggered across the day by the generate step, so this drip-feeds them.
@@ -15,5 +15,5 @@ jobs:
         run: |
           curl --fail-with-body --show-error --silent \
             --retry 3 --retry-delay 10 --max-time 120 \
-            -X POST "${{ secrets.CANTAGIO_URL }}/api/publish" \
+            -X POST "${{ secrets.FORGEBUZZ_URL }}/api/publish" \
             -H "x-cron-secret: ${{ secrets.CRON_SECRET }}"

@@ -1,7 +1,7 @@
 // Instagram + Facebook publisher. Adapted from the battle-tested Dopa Break
 // autopilot (scripts/autopilot-post.mjs): Graph API v23.0, token in the
 // Authorization header (never the URL), code-190 expiry detection, and
-// retry on 5xx/429 only. Cantagio v1 posts single images.
+// retry on 5xx/429 only. ForgeBuzz v1 posts single images.
 
 import { config, isDryRun } from "./config";
 

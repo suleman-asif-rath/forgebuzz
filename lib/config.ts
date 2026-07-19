@@ -22,7 +22,7 @@ export const config = {
     on: has(env.SUPABASE_URL) && has(env.SUPABASE_SERVICE_KEY),
     url: env.SUPABASE_URL ?? "",
     key: env.SUPABASE_SERVICE_KEY ?? "",
-    bucket: env.SUPABASE_BUCKET ?? "cantagio",
+    bucket: env.SUPABASE_BUCKET ?? "forgebuzz",
   },
   meta: {
     // Posting is "live" only when all three Meta creds are present.

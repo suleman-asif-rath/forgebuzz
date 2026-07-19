@@ -1,6 +1,6 @@
-# Cantagio
+# ForgeBuzz
 
-Automated Instagram + Facebook branded-content platform for **@cantagio**. It
+Automated Instagram + Facebook branded-content platform for **@forgebuzz**. It
 sources trending light/viral topics, writes a headline and caption, renders an
 on-brand card, and posts 5 to 7 times a day, hands-off. Built on Next.js +
 Vercel, scheduled by GitHub Actions, at $0 on free tiers.
@@ -60,7 +60,7 @@ optional and only improves quality.
 1. https://supabase.com -> New project. Note the Project URL and the
    `service_role` key (Project Settings -> API).
 2. SQL Editor -> paste and run `supabase/schema.sql`.
-3. Storage -> New bucket -> name it `cantagio` -> make it **Public**.
+3. Storage -> New bucket -> name it `forgebuzz` -> make it **Public**.
 
 **Meta (Instagram + Facebook).** This is the fiddly one.
 1. Convert your Instagram to a **Professional (Business or Creator)** account.
@@ -88,11 +88,11 @@ Any key you leave blank simply keeps that service in fallback mode. Restart
 
 ### 3. Deploy to Vercel
 
-1. Create an empty GitHub repo `cantagio` and push this folder to it.
+1. Create an empty GitHub repo `forgebuzz` and push this folder to it.
 2. https://vercel.com -> New Project -> import the repo.
 3. In Vercel Project Settings -> Environment Variables, add every value from
    your `.env.local`. Set `PUBLIC_BASE_URL` to your Vercel URL
-   (e.g. `https://cantagio.vercel.app`) and set a random `CRON_SECRET`.
+   (e.g. `https://forgebuzz.vercel.app`) and set a random `CRON_SECRET`.
 4. Deploy.
 
 > Storage note: Vercel's filesystem is temporary, so the local file store does
@@ -102,7 +102,7 @@ Any key you leave blank simply keeps that service in fallback mode. Restart
 ### 4. Turn on the automatic timers
 
 In the GitHub repo -> Settings -> Secrets and variables -> Actions, add:
-- `CANTAGIO_URL` = your Vercel URL (no trailing slash)
+- `FORGEBUZZ_URL` = your Vercel URL (no trailing slash)
 - `CRON_SECRET` = the same value you set in Vercel
 
 The two workflows then run themselves:

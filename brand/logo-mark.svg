@@ -1,12 +1,11 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="Cantagio mark">
-  <title>Cantagio mark — C tile</title>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="ForgeBuzz mark">
+  <title>ForgeBuzz mark — spark</title>
   <defs>
-    <linearGradient id="soft" x1="0" y1="1" x2="1" y2="0">
+    <linearGradient id="sg" x1="0" y1="1" x2="1" y2="0">
       <stop offset="0" stop-color="#3E86FF"/>
       <stop offset="1" stop-color="#63C6F5"/>
     </linearGradient>
   </defs>
-  <rect x="8" y="8" width="104" height="104" rx="27" fill="url(#soft)"/>
-  <path d="M84.4 30.9 A38 38 0 1 0 84.4 89.1" fill="none" stroke="#0B1020"
-        stroke-width="15" stroke-linecap="round"/>
+  <rect x="8" y="8" width="104" height="104" rx="27" fill="url(#sg)"/>
+  <path d="M60 22 C 62 48 72 58 98 60 C 72 62 62 72 60 98 C 58 72 48 62 22 60 C 48 58 58 48 60 22 Z" fill="#0B1020"/>
 </svg>

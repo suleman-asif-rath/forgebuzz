@@ -1,6 +1,6 @@
 // The safety guardrail for a HANDS-OFF account. Because nothing is reviewed by
 // a human before posting, any topic touching these areas is dropped entirely.
-// Cantagio's scope is deliberately "lighter viral" (pop culture, tech, sports,
+// ForgeBuzz's scope is deliberately "lighter viral" (pop culture, tech, sports,
 // entertainment, space, fun facts). When in doubt, we drop.
 
 // Whole-word / phrase matches (case-insensitive). Kept broad on purpose.

@@ -1,4 +1,4 @@
-name: Cantagio · Generate daily posts
+name: ForgeBuzz · Generate daily posts
 
 # Fills the day's queue each morning (09:00 Pakistan = 04:00 UTC).
 # Vercel's free cron only runs ~daily, so GitHub Actions is the timer.
@@ -15,5 +15,5 @@ jobs:
         run: |
           curl --fail-with-body --show-error --silent \
             --retry 3 --retry-delay 10 --max-time 120 \
-            -X POST "${{ secrets.CANTAGIO_URL }}/api/generate" \
+            -X POST "${{ secrets.FORGEBUZZ_URL }}/api/generate" \
             -H "x-cron-secret: ${{ secrets.CRON_SECRET }}"
