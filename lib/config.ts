@@ -25,13 +25,13 @@ export const config = {
     bucket: env.SUPABASE_BUCKET ?? "forgebuzz",
   },
   meta: {
-    // Posting is "live" only when all three Meta creds are present.
-    on:
-      has(env.META_PAGE_TOKEN) && has(env.FB_PAGE_ID) && has(env.IG_USER_ID),
-    token: env.META_PAGE_TOKEN ?? "",
-    fbPageId: env.FB_PAGE_ID ?? "",
-    igUserId: env.IG_USER_ID ?? "",
+    // Instagram-only publishing via the "Instagram API with Instagram Login"
+    // (no Facebook Page required). Live when we have an IG user token + id.
+    on: has(env.IG_ACCESS_TOKEN) && has(env.IG_USER_ID),
+    token: env.IG_ACCESS_TOKEN ?? "",
+    userId: env.IG_USER_ID ?? "",
     apiVersion: env.META_API_VERSION ?? "v23.0",
+    host: "https://graph.instagram.com",
   },
   cronSecret: env.CRON_SECRET ?? "",
   postsPerDay: Math.max(1, Math.min(12, Number(env.POSTS_PER_DAY ?? 6))),
@@ -50,6 +50,6 @@ export function serviceStatus() {
     copywriter: config.gemini.on ? "Gemini 2.5 Flash" : "Local writer (fallback)",
     backgrounds: config.pexels.on ? "Pexels" : "Gradient (fallback)",
     storage: config.supabase.on ? "Supabase" : "Local files (dev only)",
-    posting: config.meta.on ? "Instagram + Facebook (LIVE)" : "Dry-run (not posting)",
+    posting: config.meta.on ? "Instagram (LIVE)" : "Dry-run (not posting)",
   };
 }
