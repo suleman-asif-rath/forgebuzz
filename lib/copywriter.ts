@@ -77,9 +77,9 @@ function buildPrompt(t: Trend): string {
   ].join("\n");
 }
 
-async function geminiWrite(t: Trend): Promise<CardContent | null> {
+async function geminiWrite(t: Trend, key: string): Promise<CardContent | null> {
   const url =
-    `https://generativelanguage.googleapis.com/v1beta/models/${config.gemini.model}:generateContent?key=${config.gemini.key}`;
+    `https://generativelanguage.googleapis.com/v1beta/models/${config.gemini.model}:generateContent?key=${key}`;
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -112,13 +112,26 @@ async function geminiWrite(t: Trend): Promise<CardContent | null> {
   };
 }
 
-/** Returns card content, or null if the topic should be skipped. */
+// Round-robin pointer across the Gemini keys, so load (and quota) spreads
+// evenly and a rate-limited key rolls over to the next one.
+let rotationIndex = 0;
+
+/** Returns card content, or null if the topic should be skipped.
+ *  Rotates through all Gemini keys, trying the next on any failure. */
 export async function writeCard(t: Trend): Promise<CardContent | null> {
-  if (config.gemini.on) {
-    try {
-      return await geminiWrite(t);
-    } catch (e) {
-      console.warn(`[copywriter] gemini failed, using local writer: ${(e as Error).message}`);
+  const keys = config.gemini.keys;
+  if (keys.length) {
+    for (let i = 0; i < keys.length; i++) {
+      const key = keys[(rotationIndex + i) % keys.length];
+      try {
+        const result = await geminiWrite(t, key);
+        rotationIndex = (rotationIndex + i + 1) % keys.length; // advance for next call
+        return result; // may be null (topic skipped) — a valid result, not an error
+      } catch (e) {
+        if (i === keys.length - 1) {
+          console.warn(`[copywriter] all ${keys.length} Gemini keys failed, using local writer: ${(e as Error).message}`);
+        }
+      }
     }
   }
   return localWrite(t);

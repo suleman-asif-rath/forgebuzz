@@ -8,15 +8,26 @@ function has(v: string | undefined): v is string {
 
 const env = process.env;
 
+// Gemini supports multiple keys for rotation. Provide GEMINI_API_KEYS as a
+// comma-separated list (falls back to a single GEMINI_API_KEY).
+const geminiKeys = (env.GEMINI_API_KEYS || env.GEMINI_API_KEY || "")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
+
 export const config = {
   gemini: {
-    on: has(env.GEMINI_API_KEY),
-    key: env.GEMINI_API_KEY ?? "",
+    on: geminiKeys.length > 0,
+    keys: geminiKeys,
     model: "gemini-2.5-flash",
   },
   pexels: {
     on: has(env.PEXELS_API_KEY),
     key: env.PEXELS_API_KEY ?? "",
+  },
+  pixabay: {
+    on: has(env.PIXABAY_API_KEY),
+    key: env.PIXABAY_API_KEY ?? "",
   },
   supabase: {
     on: has(env.SUPABASE_URL) && has(env.SUPABASE_SERVICE_KEY),
@@ -47,8 +58,8 @@ export function isDryRun(): boolean {
 /** A short human summary of what's connected, for the dashboard banner. */
 export function serviceStatus() {
   return {
-    copywriter: config.gemini.on ? "Gemini 2.5 Flash" : "Local writer (fallback)",
-    backgrounds: config.pexels.on ? "Pexels" : "Gradient (fallback)",
+    copywriter: config.gemini.on ? `Gemini 2.5 Flash (${config.gemini.keys.length} keys)` : "Local writer (fallback)",
+    backgrounds: config.pexels.on || config.pixabay.on ? "Pexels / Pixabay" : "Gradient (fallback)",
     storage: config.supabase.on ? "Supabase" : "Local files (dev only)",
     posting: config.meta.on ? "Instagram + Facebook (LIVE)" : "Dry-run (not posting)",
   };
