@@ -1,37 +1,54 @@
 import { NextRequest, NextResponse } from "next/server";
 
 // Password-protects the dashboard PAGES (Overview / Settings / Queue) with
-// HTTP Basic Auth. The /api/* routes are deliberately NOT matched, so the
-// GitHub Actions timers (which call /api/generate and /api/publish with the
-// CRON_SECRET header) keep working with no bypass needed.
+// HTTP Basic Auth. The /api/* routes are NOT matched, so the GitHub Actions
+// timers keep working with no bypass needed.
 //
-// Password source: DASHBOARD_PASSWORD if set, else CRON_SECRET (already in
-// your env). Username can be anything. If neither is set, the dashboard is
-// left open (e.g. local dev).
+// Credentials: username "root" (override with DASHBOARD_USER) and a password
+// checked against the SHA-256 below. Set DASHBOARD_PASSWORD in the env to use
+// your own password instead. Only the hash lives in the repo, never the
+// plaintext. Left open during local development.
 export const config = {
   matcher: ["/", "/settings", "/queue"],
 };
 
-export function middleware(req: NextRequest) {
-  const password = process.env.DASHBOARD_PASSWORD || process.env.CRON_SECRET;
-  if (!password) return NextResponse.next(); // not configured -> open
+const USERNAME = process.env.DASHBOARD_USER || "root";
+const PASSWORD_SHA256 = "6b8ce9b21351a919f1872b36ca6c10ad875520409d0c40b01369726c3c42f6b6";
 
-  const header = req.headers.get("authorization") || "";
-  const [scheme, encoded] = header.split(" ");
-  if (scheme === "Basic" && encoded) {
-    let decoded = "";
-    try {
-      decoded = atob(encoded);
-    } catch {
-      decoded = "";
-    }
-    const sep = decoded.indexOf(":");
-    const supplied = sep >= 0 ? decoded.slice(sep + 1) : "";
-    if (supplied === password) return NextResponse.next();
-  }
+async function sha256Hex(input: string): Promise<string> {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(input));
+  return Array.from(new Uint8Array(buf))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
 
+function unauthorized(): NextResponse {
   return new NextResponse("Authentication required.", {
     status: 401,
     headers: { "WWW-Authenticate": 'Basic realm="ForgeBuzz Control Room"' },
   });
+}
+
+export async function middleware(req: NextRequest) {
+  if (process.env.NODE_ENV !== "production") return NextResponse.next();
+
+  const header = req.headers.get("authorization") || "";
+  const [scheme, encoded] = header.split(" ");
+  if (scheme !== "Basic" || !encoded) return unauthorized();
+
+  let decoded = "";
+  try {
+    decoded = atob(encoded);
+  } catch {
+    return unauthorized();
+  }
+  const sep = decoded.indexOf(":");
+  const user = sep >= 0 ? decoded.slice(0, sep) : "";
+  const pass = sep >= 0 ? decoded.slice(sep + 1) : decoded;
+
+  if (user !== USERNAME) return unauthorized();
+
+  const override = process.env.DASHBOARD_PASSWORD;
+  const ok = override ? pass === override : (await sha256Hex(pass)) === PASSWORD_SHA256;
+  return ok ? NextResponse.next() : unauthorized();
 }
