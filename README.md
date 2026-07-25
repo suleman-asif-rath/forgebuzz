@@ -1,6 +1,6 @@
 # ForgeBuzz
 
-Automated Instagram branded-content platform for **@forgebuzz**. It
+Automated Instagram + Facebook branded-content platform for **@forgebuzz**. It
 sources trending light/viral topics, writes a headline and caption, renders an
 on-brand card, and posts 5 to 7 times a day, hands-off. Built on Next.js +
 Vercel, scheduled by GitHub Actions, at $0 on free tiers.
@@ -41,9 +41,9 @@ With no keys it uses safe fallbacks, so it always runs end to end.
 | Copywriter | Google Gemini 2.5 Flash | Built-in local writer |
 | Backgrounds | Pexels photos | Branded gradient |
 | Storage | Supabase (Postgres + Storage) | Local files (dev only) |
-| Posting | Instagram (LIVE) | Dry-run (logs only) |
+| Posting | Instagram + Facebook (LIVE) | Dry-run (logs only) |
 
-Posting goes LIVE only when your Instagram token + id are set. Everything else is
+Posting goes LIVE only when all three Meta keys are set. Everything else is
 optional and only improves quality.
 
 ---
@@ -62,17 +62,18 @@ optional and only improves quality.
 2. SQL Editor -> paste and run `supabase/schema.sql`.
 3. Storage -> New bucket -> name it `forgebuzz` -> make it **Public**.
 
-**Instagram (via "Instagram API with Instagram Login").** No Facebook Page needed.
-1. Make sure your Instagram is a **Professional (Business or Creator)** account.
-2. Go to https://developers.facebook.com -> create an app (type: Business).
-3. Add the **Instagram** product -> **API setup with Instagram login**.
-4. Under Business login settings, add scopes: `instagram_business_basic`,
-   `instagram_business_content_publish`. Add your IG account as an Instagram tester.
-5. Generate a **long-lived Instagram User access token** (lasts ~60 days) and note
-   your **Instagram user id**.
-6. Put them in `.env.local` as `IG_ACCESS_TOKEN` and `IG_USER_ID`.
-   Posting uses host `graph.instagram.com`; for your own account this works in the
-   app's Development mode (no App Review needed).
+**Meta (Instagram + Facebook).** This is the fiddly one.
+1. Convert your Instagram to a **Professional (Business or Creator)** account.
+2. Create a **Facebook Page** and link the Instagram account to it
+   (Page settings -> Linked accounts).
+3. Go to https://developers.facebook.com -> create an app (type: Business).
+   Add products: **Instagram Graph API** and **Facebook Login**.
+4. In Graph API Explorer, generate a token with permissions:
+   `pages_show_list`, `pages_manage_posts`, `pages_read_engagement`,
+   `instagram_basic`, `instagram_content_publish`.
+5. Exchange it for a **long-lived Page access token** (lasts ~60 days).
+6. Note your **Facebook Page ID** and your **Instagram Business user ID**
+   (get the IG id via `GET /{page-id}?fields=instagram_business_account`).
 
 ### 2. Add the keys locally
 
@@ -154,7 +155,7 @@ GitHub Actions (timer)
        -> save image + enqueue with a staggered post time
   -> POST /api/publish     (hourly)
        find posts whose time has come
-       -> post image to Instagram (Instagram API with Instagram Login)
+       -> post image to Instagram + Facebook (Meta Graph API)
        -> mark posted, remember the topic so it never repeats
 ```
 
@@ -178,7 +179,7 @@ lib/
   copywriter.ts   Gemini writer (+ local fallback) + caption assembly
   pexels.ts       Background photo lookup
   render.tsx      The card renderer (the branding engine)
-  meta.ts         Instagram publisher (Instagram Login, graph.instagram.com)
+  meta.ts         Instagram + Facebook publisher
   store.ts        Supabase store (prod) / local file store (dev)
   pipeline.ts     Ties generate + publish together
   config.ts       Reads env, decides which services are live
@@ -194,8 +195,8 @@ supabase/schema.sql   Run once in Supabase
 - **Instagram** allows 25 API posts per 24 hours; 5 to 7 is well within limits.
 - **Costs** stay at $0 on the listed free tiers. If a free limit is ever hit,
   that service falls back instead of charging you.
-- **Token expiry**: the long-lived Instagram user token lasts ~60 days. Refresh it
-  and update `IG_ACCESS_TOKEN` when the logs report a code-190 error.
+- **Token expiry**: the Meta Page token lasts ~60 days. Regenerate it and update
+  `META_PAGE_TOKEN` when the logs report a code-190 error.
 
 ## Tuning
 
