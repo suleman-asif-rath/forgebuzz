@@ -52,7 +52,7 @@ export async function GET() {
             Know it before it&apos;s everywhere.
           </span>
           <span style={{ fontFamily: "Manrope", fontWeight: 700, fontSize: 24, color: "rgba(237,241,250,0.55)", marginTop: 40, letterSpacing: 6, textTransform: "uppercase" }}>
-            @forgebuzz
+            @forgee.buzz
           </span>
         </div>
       </div>

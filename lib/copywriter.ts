@@ -54,7 +54,7 @@ function localWrite(t: Trend): CardContent {
 
 function buildPrompt(t: Trend): string {
   return [
-    `You write viral Instagram posts for "ForgeBuzz" (@forgebuzz), a page sharing`,
+    `You write viral Instagram posts for "ForgeBuzz" (@forgee.buzz), a page sharing`,
     `light, positive, fascinating trending topics (pop culture, tech, sports,`,
     `entertainment, space, "did you know" facts). Tone: punchy, curious, upbeat,`,
     `never cynical, never political, never dark.`,

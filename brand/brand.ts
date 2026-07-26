@@ -12,7 +12,7 @@
 
 export const brand = {
   name: "ForgeBuzz",
-  handle: "@forgebuzz",
+  handle: "@forgee.buzz",
   tagline: "Know it before it's everywhere.",
 
   /** Logo -------------------------------------------------------------
@@ -91,7 +91,7 @@ export const brand = {
     //   2) 1–2 sentences of context / the interesting detail
     //   3) CTA line (ask for a reaction: follow / comment / tag)
     //   4) blank line, then the fixed hashtag block
-    cta: "Follow @forgebuzz so you always know it first.",
+    cta: "Follow @forgee.buzz so you always know it first.",
     maxContextSentences: 2,
     hashtagsCore: ["#forgebuzz", "#trending", "#didyouknow"],
     hashtagsBySize: 12, // total hashtags per post (core + topical)

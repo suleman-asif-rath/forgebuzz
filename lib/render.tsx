@@ -152,7 +152,7 @@ function CardElement(spec: CardSpec) {
       {/* watermark */}
       <div style={{ position: "absolute", bottom: 40, left: 0, width: 1080, display: "flex", justifyContent: "center" }}>
         <span style={{ fontFamily: "Manrope", fontWeight: 700, fontSize: 26, letterSpacing: 6, textTransform: "uppercase", color: "rgba(237,241,250,0.72)" }}>
-          @forgebuzz
+          @forgee.buzz
         </span>
       </div>
     </div>

@@ -21,7 +21,7 @@ const display = localFont({
 
 export const metadata: Metadata = {
   title: "ForgeBuzz — Control Room",
-  description: "Automated branded-content pipeline for @forgebuzz",
+  description: "Automated branded-content pipeline for @forgee.buzz",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

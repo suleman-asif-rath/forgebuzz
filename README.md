@@ -1,6 +1,6 @@
 # ForgeBuzz
 
-Automated Instagram + Facebook branded-content platform for **@forgebuzz**. It
+Automated Instagram + Facebook branded-content platform for **@forgee.buzz**. It
 sources trending light/viral topics, writes a headline and caption, renders an
 on-brand card, and posts 5 to 7 times a day, hands-off. Built on Next.js +
 Vercel, scheduled by GitHub Actions, at $0 on free tiers.
