@@ -68,9 +68,22 @@ export async function postFacebookImage(imageUrl: string, caption: string, token
   return r.post_id ?? r.id;
 }
 
-/** Post a single image to Instagram (create container -> publish). */
+/** Wait for an IG media container to finish processing before publishing.
+ *  Large photos take a few seconds; publishing too early fails. */
+async function waitForContainer(id: string, token: string): Promise<void> {
+  for (let i = 0; i < 20; i++) {
+    const r = await call(`${id}?fields=status_code`, {}, token, "GET");
+    if (r.status_code === "FINISHED") return;
+    if (r.status_code === "ERROR") throw new Error(`IG container ${id} failed processing`);
+    await sleep(3000);
+  }
+  throw new Error(`IG container ${id} not ready in time`);
+}
+
+/** Post a single image to Instagram (create container -> wait -> publish). */
 export async function postInstagramImage(imageUrl: string, caption: string, token: string): Promise<string> {
   const container = await call(`${config.meta.igUserId}/media`, { image_url: imageUrl, caption }, token);
+  await waitForContainer(container.id, token);
   return (await call(`${config.meta.igUserId}/media_publish`, { creation_id: container.id }, token)).id;
 }
 
