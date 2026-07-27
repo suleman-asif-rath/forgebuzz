@@ -20,6 +20,10 @@ export interface Store {
   deletePost(id: string): Promise<void>;
   getSettings(): Promise<Partial<Settings> | null>;
   saveSettings(settings: Settings): Promise<void>;
+  // Runtime secrets (e.g. the Meta token) so they can be rotated without a
+  // redeploy. Stored in the settings table under id='secrets'.
+  getSecret(key: string): Promise<string | null>;
+  setSecret(key: string, value: string): Promise<void>;
 }
 
 // ---------------------------------------------------------------- file store
@@ -28,6 +32,7 @@ const PUB_DIR = path.join(process.cwd(), "public", "generated");
 const QUEUE = path.join(DATA_DIR, "queue.json");
 const USED = path.join(DATA_DIR, "used.json");
 const SETTINGS = path.join(DATA_DIR, "settings.json");
+const SECRETS = path.join(DATA_DIR, "secrets.json");
 
 async function readJson<T>(file: string, fallback: T): Promise<T> {
   try {
@@ -103,6 +108,15 @@ class FileStore implements Store {
   }
   async saveSettings(settings: Settings) {
     await writeJson(SETTINGS, settings);
+  }
+  async getSecret(key: string) {
+    const s = await readJson<Record<string, string>>(SECRETS, {});
+    return s[key] ?? null;
+  }
+  async setSecret(key: string, value: string) {
+    const s = await readJson<Record<string, string>>(SECRETS, {});
+    s[key] = value;
+    await writeJson(SECRETS, s);
   }
 }
 
@@ -186,6 +200,22 @@ class SupabaseStore implements Store {
       .from("settings")
       .upsert({ id: "default", data: settings, updated_at: new Date().toISOString() }, { onConflict: "id" });
     if (error) throw new Error(`saveSettings: ${error.message}`);
+  }
+  async getSecret(key: string) {
+    const db = await this.db();
+    const { data } = await db.from("settings").select("data").eq("id", "secrets").maybeSingle();
+    const obj = (data?.data as Record<string, string> | undefined) || {};
+    return obj[key] ?? null;
+  }
+  async setSecret(key: string, value: string) {
+    const db = await this.db();
+    const { data } = await db.from("settings").select("data").eq("id", "secrets").maybeSingle();
+    const obj = (data?.data as Record<string, string> | undefined) || {};
+    obj[key] = value;
+    const { error } = await db
+      .from("settings")
+      .upsert({ id: "secrets", data: obj, updated_at: new Date().toISOString() }, { onConflict: "id" });
+    if (error) throw new Error(`setSecret: ${error.message}`);
   }
 }
 
