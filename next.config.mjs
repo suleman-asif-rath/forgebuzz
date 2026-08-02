@@ -15,7 +15,6 @@ const nextConfig = {
   outputFileTracingIncludes: {
     "/api/**": ["./brand/fonts/**"],
     "/api/reel": ["./node_modules/ffmpeg-static/ffmpeg"],
-    "/api/ffcheck": ["./node_modules/ffmpeg-static/ffmpeg"],
   },
   // Keep ffmpeg-static out of the webpack bundle so its binary path (computed
   // from __dirname) resolves at runtime instead of being mangled.
