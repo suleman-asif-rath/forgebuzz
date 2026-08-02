@@ -5,6 +5,8 @@ import { pickTrends } from "./filter";
 import { writeCard, assembleCaption } from "./copywriter";
 import { findBackground } from "./pexels";
 import { findStockVideo } from "./stockVideo";
+import { pickMusicUrl } from "./music";
+import { muxMusicOntoVideo } from "./mux";
 import { renderCardPng, renderReelCoverPng } from "./render";
 import { getStore } from "./store";
 import { publishBoth, publishReel } from "./meta";
@@ -88,17 +90,16 @@ function dayKey(d: Date, tz: string): string {
 }
 
 export interface ReelSummary {
-  mode: "live" | "dry-run" | "paused" | "skipped";
+  mode: "queued" | "skipped";
   reason?: string;
   id?: string;
-  fbId?: string | null;
-  igId?: string | null;
-  errors?: string[];
 }
 
-/** Generate and (unless paused) post ONE reel. Called hourly by its own cron,
- *  which self-gates to the dashboard's reel hour; `force` bypasses the gate and
- *  the once-a-day guard (used for manual runs / verification). */
+/** Build ONE reel (stock clip + music + branded cover) and enqueue it. Called
+ *  hourly by its own cron, which self-gates to the dashboard's reel hour; the
+ *  workflow then triggers /api/publish to post it. Building and publishing are
+ *  separate serverless calls so neither exceeds the time budget (video work is
+ *  slow). `force` bypasses the hour gate and the once-a-day guard (manual runs). */
 export async function runReel(force = false): Promise<ReelSummary> {
   const store = getStore();
   const settings = await getSettings();
@@ -125,24 +126,7 @@ export async function runReel(force = false): Promise<ReelSummary> {
   const { row, reason } = await buildReelRow(settings, trends, used);
   if (!row) return { mode: "skipped", reason: reason ?? "could not build a reel" };
   await store.enqueue([row]);
-
-  if (!settings.postingEnabled) return { mode: "paused", id: row.id };
-  if (isDryRun()) return { mode: "dry-run", id: row.id };
-
-  const result = await publishReel(
-    row.videoUrl as string,
-    row.imageUrl,
-    row.caption,
-    { fbId: row.fbId, igId: row.igId },
-    reelPersist(store, row.id),
-  );
-  if (!result.fbId && !result.igId) {
-    await store.markFailed(row.id, result.errors.join(" | ") || "unknown");
-    return { mode: "live", id: row.id, errors: result.errors };
-  }
-  await store.markPosted(row.id, { fbId: result.fbId, igId: result.igId });
-  await store.markTopicUsed(row.topicFingerprint);
-  return { mode: "live", id: row.id, fbId: result.fbId, igId: result.igId, errors: result.errors };
+  return { mode: "queued", id: row.id };
 }
 
 /** Callbacks that persist each platform id the moment it lands (timeout-safe). */
@@ -190,8 +174,21 @@ async function buildReelRow(
     if (!clip) continue; // no footage for this topic — try the next
 
     const id = newId();
-    const mp4 = await downloadToBuffer(clip.url);
-    const { videoUrl } = await store.saveVideo(id, mp4);
+    const rawClip = await downloadToBuffer(clip.url);
+    // Mix in calming background music. If anything fails, fall back to the
+    // silent clip so the day's reel still goes out.
+    let finalVideo = rawClip;
+    try {
+      const musicUrl = pickMusicUrl();
+      if (musicUrl) {
+        const music = await downloadToBuffer(musicUrl);
+        finalVideo = await muxMusicOntoVideo(rawClip, music, clip.duration);
+      }
+    } catch (e) {
+      console.warn(`[reel] music mix failed, using silent clip: ${(e as Error).message}`);
+      finalVideo = rawClip;
+    }
+    const { videoUrl } = await store.saveVideo(id, finalVideo);
     const coverPng = await renderReelCoverPng({
       template: content.template,
       category: content.category,

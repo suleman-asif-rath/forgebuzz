@@ -9,9 +9,12 @@ const nextConfig = {
   // font-tracing paths below resolve from the project, not the home dir.
   outputFileTracingRoot: projectRoot,
   // Card rendering reads the brand font files at runtime. Make sure Vercel's
-  // file tracer bundles them with the API routes.
+  // file tracer bundles them with the API routes. The reel route also shells out
+  // to the bundled ffmpeg binary to mix music into the clip, so include it there
+  // (only that route, to avoid bloating the other functions).
   outputFileTracingIncludes: {
     "/api/**": ["./brand/fonts/**"],
+    "/api/reel": ["./node_modules/ffmpeg-static/ffmpeg"],
   },
   // Pexels images are pulled into cards at render time; allow them in <Image>
   // if we ever use next/image (the card renderer itself uses next/og).

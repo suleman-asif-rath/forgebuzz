@@ -1,8 +1,9 @@
 name: ForgeBuzz · Daily reel
 
-# Runs hourly. The endpoint self-gates to the reel hour set in the dashboard and
-# to one reel per day, so this posts a single reel each evening (or whenever the
-# reel time is set) without any extra configuration here.
+# Runs hourly. /api/reel self-gates to the reel hour set in the dashboard and to
+# one reel per day, so a reel is built (stock clip + music + branded cover) once
+# each evening. Building and publishing are two separate calls so neither
+# exceeds the serverless time budget; publish only runs when a reel was queued.
 on:
   schedule:
     - cron: "0 * * * *"
@@ -12,9 +13,16 @@ jobs:
   reel:
     runs-on: ubuntu-latest
     steps:
-      - name: Trigger /api/reel
+      - name: Build reel, then publish if one was queued
+        env:
+          URL: ${{ secrets.FORGEBUZZ_URL }}
+          SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          curl --fail-with-body --show-error --silent \
-            --retry 3 --retry-delay 10 --max-time 120 \
-            -X POST "${{ secrets.FORGEBUZZ_URL }}/api/reel" \
-            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}"
+          resp=$(curl --show-error --silent --max-time 90 \
+            -X POST "$URL/api/reel" -H "x-cron-secret: $SECRET")
+          echo "reel build: $resp"
+          if echo "$resp" | grep -q '"mode":"queued"'; then
+            echo "publishing the queued reel..."
+            curl --fail-with-body --show-error --silent --retry 2 --retry-delay 10 --max-time 150 \
+              -X POST "$URL/api/publish" -H "x-cron-secret: $SECRET"
+          fi
