@@ -110,6 +110,33 @@ export default function SettingsForm({ initial }: { initial: Settings }) {
             Timeless "Did You Know" facts are exempt.
           </span>
         </div>
+
+        <div className="togglerow" style={{ marginTop: 16 }}>
+          <div>
+            <div className="t-lbl">Daily reel</div>
+            <div className="t-sub">Post one short video reel a day to Instagram &amp; Facebook (a stock clip with your branded cover).</div>
+          </div>
+          <label className="switch">
+            <input type="checkbox" checked={s.reel.enabled}
+              onChange={(e) => set("reel", { ...s.reel, enabled: e.target.checked })} />
+            <span className="track" />
+          </label>
+        </div>
+
+        {s.reel.enabled ? (
+          <div className="field" style={{ marginTop: 12 }}>
+            <label>Reel time</label>
+            <div className="chips">
+              {HOURS.map((h) => (
+                <span key={h} className={`chip ${s.reel.slotHour === h ? "on" : ""}`}
+                  onClick={() => set("reel", { ...s.reel, slotHour: h })}>
+                  {String(h).padStart(2, "0")}:00
+                </span>
+              ))}
+            </div>
+            <span className="sub">When the daily reel goes out (evenings usually get the most reach).</span>
+          </div>
+        ) : null}
       </div>
 
       {/* Areas of interest */}

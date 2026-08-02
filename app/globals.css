@@ -194,6 +194,7 @@ a { color: inherit; text-decoration: none; }
   color: var(--accent-2); background: rgba(99, 198, 245, 0.12); border: 1px solid rgba(99, 198, 245, 0.22);
   padding: 4px 10px; border-radius: 999px; }
 .pill.plain { color: var(--muted); background: transparent; border-color: var(--line); }
+.pill.reel { color: #071022; background: linear-gradient(135deg, #3E86FF 0%, #63C6F5 100%); border-color: transparent; }
 .badge { font-size: 0.64rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; }
 .badge.queued { color: var(--warn); }
 .badge.posted { color: var(--good); }

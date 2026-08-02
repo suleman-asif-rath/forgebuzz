@@ -43,6 +43,7 @@ export default function QueueManager({ posts }: { posts: PostRow[] }) {
             <div className="meta">
               <div className="row">
                 <span className="pill">{p.category}</span>
+                {p.mediaType === "reel" ? <span className="pill reel">▶ REEL</span> : null}
                 <span className={`badge ${p.status}`}>{p.status}</span>
               </div>
               <h3>{p.headline}</h3>

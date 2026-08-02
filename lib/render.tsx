@@ -168,3 +168,105 @@ export async function renderCardPng(spec: CardSpec): Promise<Buffer> {
   });
   return Buffer.from(await res.arrayBuffer());
 }
+
+// --- Reel cover (9:16) ---------------------------------------------
+// The video body is stock footage, so the cover carries the brand: it's the
+// thumbnail people see in the grid and before the reel plays.
+function reelHeadlineSize(len: number): number {
+  if (len <= 28) return 104;
+  if (len <= 50) return 84;
+  if (len <= 76) return 66;
+  return 54;
+}
+
+function ReelCover(spec: CardSpec) {
+  const hSize = reelHeadlineSize(spec.headline.length);
+  return (
+    <div
+      style={{
+        width: 1080,
+        height: 1920,
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
+        position: "relative",
+        backgroundColor: INK,
+        backgroundImage: "linear-gradient(160deg, #142446 0%, #070b16 92%)",
+        color: TEXT,
+        fontFamily: "Manrope",
+        padding: 84,
+      }}
+    >
+      {/* top row: logo + category */}
+      <div style={{ display: "flex", flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", width: "100%" }}>
+        <div style={{ display: "flex", flexDirection: "row", alignItems: "center" }}>
+          <img src={LOGO_URI} width={96} height={96} style={{ width: 96, height: 96 }} />
+          <span style={{ fontFamily: "Anton", fontSize: 50, textTransform: "uppercase", letterSpacing: 1, marginLeft: 18 }}>Forge</span>
+          <span style={{ fontFamily: "Anton", fontSize: 50, textTransform: "uppercase", letterSpacing: 1, color: ACCENT }}>Buzz</span>
+        </div>
+        <div
+          style={{
+            display: "flex",
+            backgroundImage: SIGNAL,
+            color: "#071022",
+            fontWeight: 800,
+            fontSize: 28,
+            letterSpacing: 2,
+            textTransform: "uppercase",
+            padding: "12px 26px",
+            borderRadius: 999,
+          }}
+        >
+          {spec.category}
+        </div>
+      </div>
+
+      {/* centre: play chip + headline */}
+      <div style={{ display: "flex", flexDirection: "column" }}>
+        <div style={{ display: "flex", flexDirection: "row", alignItems: "center", marginBottom: 40 }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 96,
+              height: 96,
+              borderRadius: 999,
+              backgroundImage: SIGNAL,
+              color: "#071022",
+              fontSize: 46,
+            }}
+          >
+            ▶
+          </div>
+          <span style={{ fontFamily: "Manrope", fontWeight: 800, fontSize: 30, letterSpacing: 6, textTransform: "uppercase", color: "rgba(237,241,250,0.8)", marginLeft: 24 }}>
+            Watch
+          </span>
+        </div>
+        <span style={{ fontFamily: "Anton", fontSize: hSize, lineHeight: 0.96, textTransform: "uppercase" }}>
+          {spec.headline}
+        </span>
+        {spec.source ? (
+          <span style={{ fontFamily: "Manrope", fontSize: 28, color: MUTED, marginTop: 26 }}>via {spec.source}</span>
+        ) : null}
+      </div>
+
+      {/* watermark */}
+      <div style={{ display: "flex", justifyContent: "center", width: "100%" }}>
+        <span style={{ fontFamily: "Manrope", fontWeight: 700, fontSize: 28, letterSpacing: 6, textTransform: "uppercase", color: "rgba(237,241,250,0.72)" }}>
+          @forgee.buzz
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/** Render a reel cover / thumbnail to PNG bytes (1080x1920). */
+export async function renderReelCoverPng(spec: CardSpec): Promise<Buffer> {
+  const res = new ImageResponse(ReelCover(spec), {
+    width: 1080,
+    height: 1920,
+    fonts: FONTS,
+  });
+  return Buffer.from(await res.arrayBuffer());
+}

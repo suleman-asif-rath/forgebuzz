@@ -10,6 +10,7 @@ import type { PostRow, Settings } from "./types";
 
 export interface Store {
   saveImage(id: string, png: Buffer): Promise<{ imagePath: string; imageUrl: string }>;
+  saveVideo(id: string, mp4: Buffer): Promise<{ videoPath: string; videoUrl: string }>;
   getUsedFingerprints(): Promise<Set<string>>;
   markTopicUsed(fp: string): Promise<void>;
   enqueue(rows: PostRow[]): Promise<void>;
@@ -52,6 +53,12 @@ class FileStore implements Store {
     await fs.writeFile(path.join(PUB_DIR, `${id}.png`), png);
     const imagePath = `/generated/${id}.png`;
     return { imagePath, imageUrl: `${config.baseUrl}${imagePath}` };
+  }
+  async saveVideo(id: string, mp4: Buffer) {
+    await fs.mkdir(PUB_DIR, { recursive: true });
+    await fs.writeFile(path.join(PUB_DIR, `${id}.mp4`), mp4);
+    const videoPath = `/generated/${id}.mp4`;
+    return { videoPath, videoUrl: `${config.baseUrl}${videoPath}` };
   }
   async getUsedFingerprints() {
     return new Set(await readJson<string[]>(USED, []));
@@ -142,6 +149,16 @@ class SupabaseStore implements Store {
     const { data } = db.storage.from(config.supabase.bucket).getPublicUrl(key);
     return { imagePath: key, imageUrl: data.publicUrl as string };
   }
+  async saveVideo(id: string, mp4: Buffer) {
+    const db = await this.db();
+    const key = `reels/${id}.mp4`;
+    const { error } = await db.storage
+      .from(config.supabase.bucket)
+      .upload(key, mp4, { contentType: "video/mp4", upsert: true });
+    if (error) throw new Error(`video upload: ${error.message}`);
+    const { data } = db.storage.from(config.supabase.bucket).getPublicUrl(key);
+    return { videoPath: key, videoUrl: data.publicUrl as string };
+  }
   async getUsedFingerprints() {
     const db = await this.db();
     const { data } = await db.from("used_topics").select("fingerprint");
@@ -226,6 +243,7 @@ function toDb(r: PostRow) {
     created_at: r.createdAt,
     scheduled_for: r.scheduledFor,
     status: r.status,
+    media_type: r.mediaType ?? "image",
     category: r.category,
     template: r.template,
     headline: r.headline,
@@ -236,6 +254,7 @@ function toDb(r: PostRow) {
     topic_fingerprint: r.topicFingerprint,
     image_path: r.imagePath,
     image_url: r.imageUrl,
+    video_url: r.videoUrl ?? null,
     fb_id: r.fbId ?? null,
     ig_id: r.igId ?? null,
     error: r.error ?? null,
@@ -247,6 +266,7 @@ function fromDb(r: any): PostRow {
     createdAt: r.created_at,
     scheduledFor: r.scheduled_for,
     status: r.status,
+    mediaType: (r.media_type as "image" | "reel") ?? "image",
     category: r.category,
     template: r.template,
     headline: r.headline,
@@ -257,6 +277,7 @@ function fromDb(r: any): PostRow {
     topicFingerprint: r.topic_fingerprint,
     imagePath: r.image_path,
     imageUrl: r.image_url,
+    videoUrl: r.video_url ?? null,
     fbId: r.fb_id,
     igId: r.ig_id,
     error: r.error,

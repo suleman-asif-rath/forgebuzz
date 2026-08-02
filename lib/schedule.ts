@@ -43,3 +43,9 @@ export function scheduleTimes(slotHours: number[], timezone: string, count: numb
   }
   return out;
 }
+
+/** ISO time for today at a single hour in the given timezone (used by the reel). */
+export function scheduleAtHour(hour: number, timezone: string): string {
+  const { year, month, day } = todayInTz(timezone);
+  return zonedTimeToUTC(year, month, day, hour, 0, timezone).toISOString();
+}

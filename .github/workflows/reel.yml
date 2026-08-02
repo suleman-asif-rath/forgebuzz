@@ -1,0 +1,20 @@
+name: ForgeBuzz · Daily reel
+
+# Runs hourly. The endpoint self-gates to the reel hour set in the dashboard and
+# to one reel per day, so this posts a single reel each evening (or whenever the
+# reel time is set) without any extra configuration here.
+on:
+  schedule:
+    - cron: "0 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  reel:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger /api/reel
+        run: |
+          curl --fail-with-body --show-error --silent \
+            --retry 3 --retry-delay 10 --max-time 120 \
+            -X POST "${{ secrets.FORGEBUZZ_URL }}/api/reel" \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}"

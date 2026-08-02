@@ -36,12 +36,16 @@ export interface CardSpec {
   backgroundUrl?: string | null; // Pexels photo URL, or null -> gradient
 }
 
+/** image = a still card; reel = a short stock video with the card as its cover. */
+export type MediaKind = "image" | "reel";
+
 /** A row in the post queue. */
 export interface PostRow {
   id: string;
   createdAt: string; // ISO
   scheduledFor: string; // ISO
   status: "queued" | "posted" | "failed";
+  mediaType: MediaKind; // "image" (default) or "reel"
   category: string;
   template: TemplateKind;
   headline: string;
@@ -51,7 +55,8 @@ export interface PostRow {
   sourceUrl: string;
   topicFingerprint: string;
   imagePath: string; // local: /generated/<id>.png ; supabase: public URL
-  imageUrl: string; // absolute URL usable by Meta
+  imageUrl: string; // absolute URL usable by Meta (for a reel: the cover image)
+  videoUrl?: string | null; // reels only: absolute URL of the mp4 Meta will fetch
   fbId?: string | null;
   igId?: string | null;
   error?: string | null;
@@ -73,6 +78,7 @@ export interface Settings {
   sources: { reddit: boolean; rss: boolean; hackernews: boolean; googlenews: boolean };
   voice: { cta: string; hashtagsCore: string[] };
   extraBlockedWords: string[]; // added to the built-in safety net
+  reel: { enabled: boolean; slotHour: number }; // one daily reel, at slotHour (local tz)
 }
 
 export interface GenerateSummary {

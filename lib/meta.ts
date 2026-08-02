@@ -69,13 +69,20 @@ export async function postFacebookImage(imageUrl: string, caption: string, token
 }
 
 /** Wait for an IG media container to finish processing before publishing.
- *  Large photos take a few seconds; publishing too early fails. */
-async function waitForContainer(id: string, token: string): Promise<void> {
-  for (let i = 0; i < 20; i++) {
+ *  Large photos and videos take time; publishing too early fails. Kept short so
+ *  the whole publish stays inside the serverless time budget — an occasional
+ *  "not ready in time" just leaves the item queued for the next hourly run. */
+async function waitForContainer(
+  id: string,
+  token: string,
+  attempts = 20,
+  intervalMs = 3000,
+): Promise<void> {
+  for (let i = 0; i < attempts; i++) {
     const r = await call(`${id}?fields=status_code`, {}, token, "GET");
     if (r.status_code === "FINISHED") return;
     if (r.status_code === "ERROR") throw new Error(`IG container ${id} failed processing`);
-    await sleep(3000);
+    await sleep(intervalMs);
   }
   throw new Error(`IG container ${id} not ready in time`);
 }
@@ -85,6 +92,71 @@ export async function postInstagramImage(imageUrl: string, caption: string, toke
   const container = await call(`${config.meta.igUserId}/media`, { image_url: imageUrl, caption }, token);
   await waitForContainer(container.id, token);
   return (await call(`${config.meta.igUserId}/media_publish`, { creation_id: container.id }, token)).id;
+}
+
+/** Post a Reel to Instagram: create a REELS container (video + branded cover),
+ *  wait for it to finish processing, then publish. Kept within a tight time
+ *  budget so it fits a serverless run. */
+export async function postInstagramReel(
+  videoUrl: string,
+  coverUrl: string | null,
+  caption: string,
+  token: string,
+): Promise<string> {
+  const params: Record<string, string> = {
+    media_type: "REELS",
+    video_url: videoUrl,
+    caption,
+    share_to_feed: "true",
+  };
+  if (coverUrl) params.cover_url = coverUrl;
+  const container = await call(`${config.meta.igUserId}/media`, params, token);
+  await waitForContainer(container.id, token, 14, 3000); // ~42s cap for video
+  return (await call(`${config.meta.igUserId}/media_publish`, { creation_id: container.id }, token)).id;
+}
+
+/** Wait for an uploaded FB reel to finish transferring before we publish it. */
+async function waitForFbReel(videoId: string, token: string, attempts = 12, intervalMs = 3000): Promise<void> {
+  for (let i = 0; i < attempts; i++) {
+    const r = await call(`${videoId}?fields=status`, {}, token, "GET");
+    const up = r?.status?.uploading_phase?.status;
+    const vs = r?.status?.video_status;
+    if (up === "complete" || vs === "ready" || vs === "upload_complete") return;
+    if (up === "error" || vs === "error") throw new Error(`FB reel ${videoId} upload error`);
+    await sleep(intervalMs);
+  }
+  // Not confirmed complete, but the finish call below will surface a real error
+  // if it truly isn't ready — so fall through rather than failing hard here.
+}
+
+/** Post a Reel to the Facebook Page using the three-phase video_reels flow:
+ *  start (get an upload target) -> upload the hosted mp4 -> finish/publish. */
+export async function postFacebookReel(videoUrl: string, caption: string, token: string): Promise<string> {
+  // 1. start — reserve a video id + upload url
+  const start = await call(`${config.meta.fbPageId}/video_reels`, { upload_phase: "start" }, token);
+  const videoId: string = start.video_id;
+  const uploadUrl: string = start.upload_url;
+  if (!videoId || !uploadUrl) throw new Error(`FB reel start failed: ${JSON.stringify(start)}`);
+
+  // 2. upload — hand Meta the hosted file URL to pull (non-resumable upload)
+  const up = await fetch(uploadUrl, {
+    method: "POST",
+    headers: { Authorization: `OAuth ${token}`, file_url: videoUrl },
+    signal: AbortSignal.timeout(90_000),
+  });
+  const upJson = await up.json().catch(() => ({}));
+  if (!up.ok || upJson.success === false) {
+    throw new Error(`FB reel upload: ${up.status} ${JSON.stringify(upJson)}`);
+  }
+
+  // 3. wait until the transfer is done, then publish
+  await waitForFbReel(videoId, token);
+  await call(
+    `${config.meta.fbPageId}/video_reels`,
+    { upload_phase: "finish", video_id: videoId, video_state: "PUBLISHED", description: caption },
+    token,
+  );
+  return videoId;
 }
 
 export interface PublishResult {
@@ -115,5 +187,31 @@ export async function publishBoth(imageUrl: string, caption: string): Promise<Pu
   } catch (e) {
     errors.push(`IG: ${(e as Error).message}`);
   }
+  return { fbId, igId, errors };
+}
+
+/** Publish one Reel to both platforms. FB and IG run concurrently so the whole
+ *  thing fits the serverless time budget (video processing is the slow part). */
+export async function publishReel(
+  videoUrl: string,
+  coverUrl: string | null,
+  caption: string,
+): Promise<PublishResult> {
+  if (isDryRun()) {
+    console.log(`[dry-run] would post REEL ${videoUrl}\n  caption: ${caption.slice(0, 90).replace(/\n/g, " ")}...`);
+    return { fbId: "dryrun-fb", igId: "dryrun-ig", errors: [] };
+  }
+  const token = await getMetaToken();
+  const errors: string[] = [];
+  const [fb, ig] = await Promise.allSettled([
+    postFacebookReel(videoUrl, caption, token),
+    postInstagramReel(videoUrl, coverUrl, caption, token),
+  ]);
+  let fbId: string | null = null;
+  let igId: string | null = null;
+  if (fb.status === "fulfilled") fbId = fb.value;
+  else errors.push(`FB: ${(fb.reason as Error).message}`);
+  if (ig.status === "fulfilled") igId = ig.value;
+  else errors.push(`IG: ${(ig.reason as Error).message}`);
   return { fbId, igId, errors };
 }
