@@ -15,7 +15,11 @@ const nextConfig = {
   outputFileTracingIncludes: {
     "/api/**": ["./brand/fonts/**"],
     "/api/reel": ["./node_modules/ffmpeg-static/ffmpeg"],
+    "/api/ffcheck": ["./node_modules/ffmpeg-static/ffmpeg"],
   },
+  // Keep ffmpeg-static out of the webpack bundle so its binary path (computed
+  // from __dirname) resolves at runtime instead of being mangled.
+  serverExternalPackages: ["ffmpeg-static"],
   // Pexels images are pulled into cards at render time; allow them in <Image>
   // if we ever use next/image (the card renderer itself uses next/og).
   images: {
