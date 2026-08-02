@@ -129,7 +129,13 @@ export async function runReel(force = false): Promise<ReelSummary> {
   if (!settings.postingEnabled) return { mode: "paused", id: row.id };
   if (isDryRun()) return { mode: "dry-run", id: row.id };
 
-  const result = await publishReel(row.videoUrl as string, row.imageUrl, row.caption);
+  const result = await publishReel(
+    row.videoUrl as string,
+    row.imageUrl,
+    row.caption,
+    { fbId: row.fbId, igId: row.igId },
+    reelPersist(store, row.id),
+  );
   if (!result.fbId && !result.igId) {
     await store.markFailed(row.id, result.errors.join(" | ") || "unknown");
     return { mode: "live", id: row.id, errors: result.errors };
@@ -137,6 +143,14 @@ export async function runReel(force = false): Promise<ReelSummary> {
   await store.markPosted(row.id, { fbId: result.fbId, igId: result.igId });
   await store.markTopicUsed(row.topicFingerprint);
   return { mode: "live", id: row.id, fbId: result.fbId, igId: result.igId, errors: result.errors };
+}
+
+/** Callbacks that persist each platform id the moment it lands (timeout-safe). */
+function reelPersist(store: ReturnType<typeof getStore>, id: string) {
+  return {
+    fb: (fbId: string) => store.updatePostIds(id, { fbId }),
+    ig: (igId: string) => store.updatePostIds(id, { igId }),
+  };
 }
 
 async function downloadToBuffer(url: string): Promise<Buffer> {
@@ -230,7 +244,13 @@ export async function runPublish(): Promise<PublishSummary> {
   for (const row of due) {
     const result =
       row.mediaType === "reel" && row.videoUrl
-        ? await publishReel(row.videoUrl, row.imageUrl, row.caption)
+        ? await publishReel(
+            row.videoUrl,
+            row.imageUrl,
+            row.caption,
+            { fbId: row.fbId, igId: row.igId },
+            reelPersist(store, row.id),
+          )
         : await publishBoth(row.imageUrl, row.caption);
     if (!result.fbId && !result.igId) {
       await store.markFailed(row.id, result.errors.join(" | ") || "unknown");

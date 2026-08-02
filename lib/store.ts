@@ -17,6 +17,9 @@ export interface Store {
   listRecent(limit: number): Promise<PostRow[]>;
   getDue(nowISO: string): Promise<PostRow[]>;
   markPosted(id: string, ids: { fbId?: string | null; igId?: string | null }): Promise<void>;
+  // Record one platform's post id mid-publish (leaves status unchanged) so a
+  // timed-out run can be safely retried without re-posting that platform.
+  updatePostIds(id: string, patch: { fbId?: string | null; igId?: string | null }): Promise<void>;
   markFailed(id: string, error: string): Promise<void>;
   deletePost(id: string): Promise<void>;
   getSettings(): Promise<Partial<Settings> | null>;
@@ -98,6 +101,12 @@ class FileStore implements Store {
       r.fbId = ids.fbId ?? null;
       r.igId = ids.igId ?? null;
       r.error = null;
+    });
+  }
+  async updatePostIds(id: string, patch: { fbId?: string | null; igId?: string | null }) {
+    await this.patch(id, (r) => {
+      if (patch.fbId !== undefined) r.fbId = patch.fbId;
+      if (patch.igId !== undefined) r.igId = patch.igId;
     });
   }
   async markFailed(id: string, error: string) {
@@ -197,6 +206,14 @@ class SupabaseStore implements Store {
       .from("posts")
       .update({ status: "posted", fb_id: ids.fbId ?? null, ig_id: ids.igId ?? null, error: null })
       .eq("id", id);
+  }
+  async updatePostIds(id: string, patch: { fbId?: string | null; igId?: string | null }) {
+    const db = await this.db();
+    const upd: Record<string, string | null> = {};
+    if (patch.fbId !== undefined) upd.fb_id = patch.fbId;
+    if (patch.igId !== undefined) upd.ig_id = patch.igId;
+    if (!Object.keys(upd).length) return;
+    await db.from("posts").update(upd).eq("id", id);
   }
   async markFailed(id: string, error: string) {
     const db = await this.db();

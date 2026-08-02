@@ -190,12 +190,22 @@ export async function publishBoth(imageUrl: string, caption: string): Promise<Pu
   return { fbId, igId, errors };
 }
 
-/** Publish one Reel to both platforms. FB and IG run concurrently so the whole
- *  thing fits the serverless time budget (video processing is the slow part). */
+/** Persist a platform id the instant it succeeds, so a timed-out run is safe. */
+export interface ReelPersist {
+  fb: (id: string) => Promise<void>;
+  ig: (id: string) => Promise<void>;
+}
+
+/** Publish one Reel to both platforms, idempotently. Platforms that already
+ *  have an id (from a prior, timed-out attempt) are skipped, and each new id is
+ *  persisted the moment it lands — so a retry never double-posts. FB and IG run
+ *  concurrently to fit the serverless time budget (video processing is slow). */
 export async function publishReel(
   videoUrl: string,
   coverUrl: string | null,
   caption: string,
+  existing: { fbId?: string | null; igId?: string | null },
+  persist: ReelPersist,
 ): Promise<PublishResult> {
   if (isDryRun()) {
     console.log(`[dry-run] would post REEL ${videoUrl}\n  caption: ${caption.slice(0, 90).replace(/\n/g, " ")}...`);
@@ -203,15 +213,24 @@ export async function publishReel(
   }
   const token = await getMetaToken();
   const errors: string[] = [];
-  const [fb, ig] = await Promise.allSettled([
-    postFacebookReel(videoUrl, caption, token),
-    postInstagramReel(videoUrl, coverUrl, caption, token),
-  ]);
-  let fbId: string | null = null;
-  let igId: string | null = null;
-  if (fb.status === "fulfilled") fbId = fb.value;
-  else errors.push(`FB: ${(fb.reason as Error).message}`);
-  if (ig.status === "fulfilled") igId = ig.value;
-  else errors.push(`IG: ${(ig.reason as Error).message}`);
+  let fbId: string | null = existing.fbId ?? null;
+  let igId: string | null = existing.igId ?? null;
+
+  const tasks: Promise<void>[] = [];
+  if (!fbId) {
+    tasks.push(
+      postFacebookReel(videoUrl, caption, token)
+        .then(async (id) => { fbId = id; await persist.fb(id); })
+        .catch((e) => { errors.push(`FB: ${(e as Error).message}`); }),
+    );
+  }
+  if (!igId) {
+    tasks.push(
+      postInstagramReel(videoUrl, coverUrl, caption, token)
+        .then(async (id) => { igId = id; await persist.ig(id); })
+        .catch((e) => { errors.push(`IG: ${(e as Error).message}`); }),
+    );
+  }
+  await Promise.allSettled(tasks);
   return { fbId, igId, errors };
 }
