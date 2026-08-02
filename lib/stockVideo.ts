@@ -1,7 +1,8 @@
-// Find a vertical (9:16) stock video clip for a keyword, so a daily Reel can be
-// assembled at $0. Tries Pexels (has a real portrait filter) first, then
-// Pixabay as a fallback. Returns a directly-downloadable mp4 URL, or null (the
-// pipeline then skips the reel for the day and logs it).
+// Find a stock video clip for a keyword, so a daily Reel can be assembled at
+// $0. Prefers a vertical (9:16) clip but will accept any orientation rather
+// than produce no reel at all (Meta fits/crops it). Tries Pexels first, then
+// Pixabay, then a few generic fallback keywords. Returns a directly-
+// downloadable mp4 URL, or null only if nothing at all is found.
 
 import { config } from "./config";
 
@@ -13,15 +14,18 @@ export interface StockVideo {
   source: "pexels" | "pixabay";
 }
 
-// Reels want a portrait clip that is short enough to hold attention. We prefer
-// ~720-1080 wide to keep the re-hosted file small, and 5-45s long.
-const MIN_DURATION = 4;
-const MAX_DURATION = 60;
+const MIN_DURATION = 3;
+const MAX_DURATION = 70;
 
-function scorePortrait(width: number, height: number): number {
-  // Lower is better. Reward portrait aspect and a width near 1080.
-  const portraitBonus = height > width ? 0 : 4000; // heavily penalise landscape
-  return portraitBonus + Math.abs(width - 1000);
+// Broad terms that reliably return footage, used if a specific keyword is dry.
+const FALLBACK_KEYWORDS = ["abstract background", "city timelapse", "nature", "technology", "lights"];
+
+// Lower is better. Strongly prefer portrait and a modest width (keeps the
+// re-hosted file small) but never hard-exclude, so we always get *something*.
+function score(width: number, height: number): number {
+  const portraitPenalty = height > width ? 0 : 3000;
+  const widthPenalty = width > 1280 ? (width - 1280) * 2 : Math.abs(width - 1000);
+  return portraitPenalty + widthPenalty;
 }
 
 async function fromPexels(keyword: string): Promise<StockVideo | null> {
@@ -47,9 +51,8 @@ async function fromPexels(keyword: string): Promise<StockVideo | null> {
         if (f?.file_type !== "video/mp4" || !f?.link) continue;
         const w = Number(f.width ?? 0);
         const h = Number(f.height ?? 0);
-        if (h <= w) continue; // portrait only
-        if (w > 1200) continue; // keep the re-hosted file modest
-        const sc = scorePortrait(w, h);
+        if (!w || !h) continue;
+        const sc = score(w, h);
         if (sc < bestScore) {
           bestScore = sc;
           best = { url: f.link, width: w, height: h, duration: dur, source: "pexels" };
@@ -79,14 +82,12 @@ async function fromPixabay(keyword: string): Promise<StockVideo | null> {
     for (const hit of hits) {
       const dur = Number(hit?.duration ?? 0);
       if (dur < MIN_DURATION || dur > MAX_DURATION) continue;
-      // Pixabay renditions: large/medium/small/tiny. Prefer the smallest that is
-      // still reasonably sized so the re-host stays light.
       for (const key of ["medium", "large", "small"] as const) {
         const f = hit?.videos?.[key];
         if (!f?.url) continue;
         const w = Number(f.width ?? 0);
         const h = Number(f.height ?? 0);
-        const sc = scorePortrait(w, h);
+        const sc = score(w, h);
         if (sc < bestScore) {
           bestScore = sc;
           best = { url: f.url, width: w, height: h, duration: dur, source: "pixabay" };
@@ -101,7 +102,17 @@ async function fromPixabay(keyword: string): Promise<StockVideo | null> {
   }
 }
 
-/** Best available vertical clip for a keyword, or null if none found. */
-export async function findStockVideo(keyword: string): Promise<StockVideo | null> {
+async function findOne(keyword: string): Promise<StockVideo | null> {
   return (await fromPexels(keyword)) || (await fromPixabay(keyword));
+}
+
+/** Best available clip for a keyword, trying generic fallbacks before giving up. */
+export async function findStockVideo(keyword: string): Promise<StockVideo | null> {
+  const direct = await findOne(keyword);
+  if (direct) return direct;
+  for (const fb of FALLBACK_KEYWORDS) {
+    const clip = await findOne(fb);
+    if (clip) return clip;
+  }
+  return null;
 }

@@ -122,8 +122,8 @@ export async function runReel(force = false): Promise<ReelSummary> {
 
   const trends = await fetchAllTrends(settings.sources);
   const used = await store.getUsedFingerprints();
-  const row = await buildReelRow(settings, trends, used);
-  if (!row) return { mode: "skipped", reason: "no fresh topic or clip found" };
+  const { row, reason } = await buildReelRow(settings, trends, used);
+  if (!row) return { mode: "skipped", reason: reason ?? "could not build a reel" };
   await store.enqueue([row]);
 
   if (!settings.postingEnabled) return { mode: "paused", id: row.id };
@@ -145,65 +145,72 @@ async function downloadToBuffer(url: string): Promise<Buffer> {
   return Buffer.from(await res.arrayBuffer());
 }
 
-/** Build a single reel PostRow: pick a fresh topic, find a vertical stock clip,
- *  re-host it, render a branded cover, and schedule it for the reel hour.
- *  Returns null if no fresh topic or no matching clip is available. */
+/** Build a single reel PostRow: pick a fresh topic, find a stock clip, re-host
+ *  it, and render a branded cover. Tries several candidate topics so one
+ *  unsafe/clip-less topic doesn't lose the day. Returns { row } on success, or
+ *  { reason } explaining why nothing could be built. */
 async function buildReelRow(
   settings: Settings,
   trends: Trend[],
   usedFingerprints: Set<string>,
-): Promise<PostRow | null> {
+): Promise<{ row?: PostRow; reason?: string }> {
   const store = getStore();
   const { picks } = pickTrends(trends, {
-    count: 1,
+    count: 8, // several candidates; we use the first that yields a clip
     usedFingerprints,
     categories: settings.categories,
     extraBlockedWords: settings.extraBlockedWords,
     maxAgeHours: settings.maxAgeHours,
   });
-  const t = picks[0];
-  if (!t) return null;
+  if (!picks.length) return { reason: "no fresh topic passed the filter" };
 
-  const content = await writeCard(t);
-  if (!content) return null;
-  content.cta = settings.voice.cta;
-  content.hashtags = [...new Set([...settings.voice.hashtagsCore, ...content.hashtags])].slice(0, 12);
+  let sawTopic = false;
+  for (const t of picks) {
+    const content = await writeCard(t);
+    if (!content) continue; // topic judged unsafe/off-brand — try the next
+    sawTopic = true;
+    content.cta = settings.voice.cta;
+    content.hashtags = [...new Set([...settings.voice.hashtagsCore, ...content.hashtags])].slice(0, 12);
 
-  const clip = await findStockVideo(content.backgroundKeyword);
-  if (!clip) return null;
+    const clip = await findStockVideo(content.backgroundKeyword);
+    if (!clip) continue; // no footage for this topic — try the next
 
-  const id = newId();
-  const mp4 = await downloadToBuffer(clip.url);
-  const { videoUrl } = await store.saveVideo(id, mp4);
-  const coverPng = await renderReelCoverPng({
-    template: content.template,
-    category: content.category,
-    headline: content.headline,
-    source: t.source,
-  });
-  const { imagePath, imageUrl } = await store.saveImage(id, coverPng);
+    const id = newId();
+    const mp4 = await downloadToBuffer(clip.url);
+    const { videoUrl } = await store.saveVideo(id, mp4);
+    const coverPng = await renderReelCoverPng({
+      template: content.template,
+      category: content.category,
+      headline: content.headline,
+      source: t.source,
+    });
+    const { imagePath, imageUrl } = await store.saveImage(id, coverPng);
 
-  return {
-    id,
-    createdAt: new Date().toISOString(),
-    scheduledFor: new Date().toISOString(),
-    status: "queued",
-    mediaType: "reel",
-    category: content.category,
-    template: content.template,
-    headline: content.headline,
-    caption: assembleCaption(content),
-    hashtags: content.hashtags,
-    source: t.source,
-    sourceUrl: t.url,
-    topicFingerprint: fingerprint(t.title),
-    imagePath,
-    imageUrl,
-    videoUrl,
-    fbId: null,
-    igId: null,
-    error: null,
-  };
+    return {
+      row: {
+        id,
+        createdAt: new Date().toISOString(),
+        scheduledFor: new Date().toISOString(),
+        status: "queued",
+        mediaType: "reel",
+        category: content.category,
+        template: content.template,
+        headline: content.headline,
+        caption: assembleCaption(content),
+        hashtags: content.hashtags,
+        source: t.source,
+        sourceUrl: t.url,
+        topicFingerprint: fingerprint(t.title),
+        imagePath,
+        imageUrl,
+        videoUrl,
+        fbId: null,
+        igId: null,
+        error: null,
+      },
+    };
+  }
+  return { reason: sawTopic ? "topics found but no stock clip matched" : "all candidate topics were filtered out" };
 }
 
 export async function runPublish(): Promise<PublishSummary> {
