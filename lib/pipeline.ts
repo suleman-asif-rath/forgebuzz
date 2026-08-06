@@ -105,15 +105,10 @@ export async function runReel(force = false): Promise<ReelSummary> {
   const settings = await getSettings();
   if (!settings.reel.enabled) return { mode: "skipped", reason: "reel disabled" };
 
+  // Timing is controlled by the reel workflow's cron (a fixed evening slot), so
+  // there's no hour gate here — just the one-reel-per-day guard.
   const now = new Date();
   const tz = settings.timezone;
-  const hourNow = Number(
-    new Intl.DateTimeFormat("en-US", { timeZone: tz, hour: "2-digit", hour12: false }).format(now),
-  );
-  if (!force && hourNow !== settings.reel.slotHour) {
-    return { mode: "skipped", reason: `not reel hour (now ${hourNow}, want ${settings.reel.slotHour})` };
-  }
-
   const today = dayKey(now, tz);
   const recent = await store.listRecent(40);
   const existing = recent.find(

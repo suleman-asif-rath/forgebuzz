@@ -1,12 +1,14 @@
 name: ForgeBuzz · Daily reel
 
-# Runs hourly. /api/reel self-gates to the reel hour set in the dashboard and to
-# one reel per day, so a reel is built (stock clip + music + branded cover) once
-# each evening. Building and publishing are two separate calls so neither
-# exceeds the serverless time budget; publish only runs when a reel was queued.
+# Runs at a fixed evening slot (13:00 & 14:00 UTC = 18:00 & 19:00 PKT). The
+# one-reel-per-day guard means only the first of the two attempts actually posts;
+# the second is a cheap retry in case the first is skipped by GitHub. Running on
+# a fixed schedule (instead of hourly) keeps Actions-minute usage low. Building
+# and publishing are two separate calls so neither exceeds the serverless time
+# budget; publish only runs when a reel was queued.
 on:
   schedule:
-    - cron: "0 * * * *"
+    - cron: "0 13,14 * * *"
   workflow_dispatch: {}
 
 jobs:

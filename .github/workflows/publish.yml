@@ -1,10 +1,12 @@
 name: ForgeBuzz · Publish due posts
 
-# Runs hourly and publishes whichever queued posts are now due. Posts are
-# staggered across the day by the generate step, so this drip-feeds them.
+# Runs every 2 hours and publishes whichever queued posts are now due. The
+# default posting slots (09/11/13/15/17/19/21 PKT = 04/06/08/10/12/14/16 UTC)
+# all land on even UTC hours, so an every-2-hours schedule still posts each slot
+# on time while roughly halving Actions-minute usage versus running hourly.
 on:
   schedule:
-    - cron: "0 * * * *"
+    - cron: "0 */2 * * *"
   workflow_dispatch: {}
 
 jobs:
