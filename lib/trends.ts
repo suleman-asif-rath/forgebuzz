@@ -31,6 +31,13 @@ const SUBREDDITS: { sub: string; category: string }[] = [
   { sub: "science", category: "DID YOU KNOW" },
   { sub: "UpliftingNews", category: "TRENDING" },
   { sub: "Damnthatsinteresting", category: "TRENDING" },
+  // High-virality, broadly-shareable, wholesome sources (great reel fodder).
+  { sub: "BeAmazed", category: "TRENDING" },
+  { sub: "interestingasfuck", category: "TRENDING" },
+  { sub: "oddlysatisfying", category: "TRENDING" },
+  { sub: "mademesmile", category: "TRENDING" },
+  { sub: "Awwducational", category: "DID YOU KNOW" },
+  { sub: "nextfuckinglevel", category: "TRENDING" },
 ];
 
 async function fetchReddit(): Promise<Trend[]> {

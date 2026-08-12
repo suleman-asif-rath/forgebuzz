@@ -12,7 +12,7 @@ import { getStore } from "./store";
 import { publishBoth, publishReel } from "./meta";
 import { scheduleTimes } from "./schedule";
 import { newId, fingerprint } from "./util";
-import type { GenerateSummary, PostRow, PublishSummary, Settings, Trend } from "./types";
+import type { CategorySetting, GenerateSummary, PostRow, PublishSummary, Settings, Trend } from "./types";
 
 export async function runGenerate(): Promise<GenerateSummary> {
   const store = getStore();
@@ -105,16 +105,19 @@ export async function runReel(force = false): Promise<ReelSummary> {
   const settings = await getSettings();
   if (!settings.reel.enabled) return { mode: "skipped", reason: "reel disabled" };
 
-  // Timing is controlled by the reel workflow's cron (a fixed evening slot), so
-  // there's no hour gate here — just the one-reel-per-day guard.
+  // Timing is controlled by the reel workflow's cron (fixed daily slots), so
+  // there's no hour gate here — just a daily count cap. Each cron slot builds one
+  // reel until the day's `perDay` limit is reached.
   const now = new Date();
   const tz = settings.timezone;
   const today = dayKey(now, tz);
-  const recent = await store.listRecent(40);
-  const existing = recent.find(
+  const recent = await store.listRecent(60);
+  const todayReels = recent.filter(
     (r) => r.mediaType === "reel" && r.status !== "failed" && dayKey(new Date(r.createdAt), tz) === today,
   );
-  if (!force && existing) return { mode: "skipped", reason: "reel already done today", id: existing.id };
+  if (!force && todayReels.length >= settings.reel.perDay) {
+    return { mode: "skipped", reason: `daily reel limit reached (${todayReels.length}/${settings.reel.perDay})` };
+  }
 
   const trends = await fetchAllTrends(settings.sources);
   const used = await store.getUsedFingerprints();
@@ -142,16 +145,43 @@ async function downloadToBuffer(url: string): Promise<Buffer> {
  *  it, and render a branded cover. Tries several candidate topics so one
  *  unsafe/clip-less topic doesn't lose the day. Returns { row } on success, or
  *  { reason } explaining why nothing could be built. */
+// How viral/relatable each category tends to be as a short reel. Used only for
+// reel topic selection, so reels lean into shareable content without changing
+// the user's image-post category weights.
+const REEL_VIRALITY: Record<string, number> = {
+  TRENDING: 5,
+  "DID YOU KNOW": 5,
+  ENTERTAINMENT: 5,
+  SPORTS: 4,
+  SPACE: 4,
+  TECH: 2,
+  WORLD: 2,
+};
+
+function biasCategoriesForReels(
+  categories: Record<string, CategorySetting>,
+): Record<string, CategorySetting> {
+  const out: Record<string, CategorySetting> = {};
+  for (const [cat, s] of Object.entries(categories)) {
+    out[cat] = { enabled: s.enabled, weight: REEL_VIRALITY[cat] ?? s.weight };
+  }
+  return out;
+}
+
 async function buildReelRow(
   settings: Settings,
   trends: Trend[],
   usedFingerprints: Set<string>,
 ): Promise<{ row?: PostRow; reason?: string }> {
   const store = getStore();
+  // Reels live or die on shareability, so bias reel topic-picking toward the
+  // most viral/relatable categories (kept separate from the user's stored image
+  // settings; disabled categories are still respected).
+  const reelCategories = biasCategoriesForReels(settings.categories);
   const { picks } = pickTrends(trends, {
     count: 8, // several candidates; we use the first that yields a clip
     usedFingerprints,
-    categories: settings.categories,
+    categories: reelCategories,
     extraBlockedWords: settings.extraBlockedWords,
     maxAgeHours: settings.maxAgeHours,
   });
@@ -159,7 +189,7 @@ async function buildReelRow(
 
   let sawTopic = false;
   for (const t of picks) {
-    const content = await writeCard(t);
+    const content = await writeCard(t, true); // reel-tuned hook
     if (!content) continue; // topic judged unsafe/off-brand — try the next
     sawTopic = true;
     content.cta = settings.voice.cta;

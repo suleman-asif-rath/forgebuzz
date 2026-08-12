@@ -52,39 +52,47 @@ function localWrite(t: Trend): CardContent {
   };
 }
 
-function buildPrompt(t: Trend): string {
+function buildPrompt(t: Trend, forReel = false): string {
+  const format = forReel
+    ? `This is for a short VIDEO REEL: the headline is the cover/thumbnail text and captionHook is the first thing viewers read. Both must be impossible to scroll past.`
+    : `This is for a single image card.`;
   return [
-    `You write viral Instagram posts for "ForgeBuzz" (@forgee.buzz), a page sharing`,
-    `light, positive, fascinating trending topics (pop culture, tech, sports,`,
+    `You write VIRAL Instagram/Facebook posts for "ForgeBuzz" (@forgee.buzz), a page`,
+    `sharing light, positive, fascinating trending topics (pop culture, tech, sports,`,
     `entertainment, space, "did you know" facts). Tone: punchy, curious, upbeat,`,
     `never cynical, never political, never dark.`,
+    format,
     ``,
     `TOPIC (from ${t.source}): "${t.title}"`,
     ``,
+    `Write a SCROLL-STOPPING hook: use a curiosity gap ("You won't believe..."),`,
+    `a bold or surprising claim, a number, or a "wait, what?" angle. Make people`,
+    `stop and want to know more. Never a dry news headline.`,
+    ``,
     `Return ONLY compact JSON with these fields:`,
     `{`,
-    `  "headline": string,        // <= 90 chars, punchy, for a big card. No hashtags.`,
+    `  "headline": string,        // <= 80 chars, a scroll-stopping hook for a big cover. No hashtags.`,
     `  "template": "headline" | "fact" | "question",`,
     `  "category": one of ${JSON.stringify(brand.categories)},`,
     `  "stat": string,            // ONLY for template "fact": the big number, e.g. "8 MIN". Else "".`,
-    `  "captionHook": string,     // 1 line, may use ONE emoji`,
+    `  "captionHook": string,     // 1 punchy line that makes people stop scrolling; may use ONE emoji`,
     `  "captionContext": string,  // 1-2 sentences of the interesting detail`,
     `  "cta": string,             // ask for a reaction (follow/comment/tag)`,
-    `  "hashtags": string[],      // exactly 12, start with #forgebuzz #trending #didyouknow`,
-    `  "backgroundKeyword": string // 1-3 words to find a matching stock photo`,
+    `  "hashtags": string[],      // exactly 12, start with #forgebuzz #trending #didyouknow, rest topical`,
+    `  "backgroundKeyword": string // 1-3 words to find a matching stock photo/clip`,
     `}`,
     `If the topic is sensitive, tragic, political or adult, return {"skip": true}.`,
   ].join("\n");
 }
 
-async function geminiWrite(t: Trend, key: string): Promise<CardContent | null> {
+async function geminiWrite(t: Trend, key: string, forReel = false): Promise<CardContent | null> {
   const url =
     `https://generativelanguage.googleapis.com/v1beta/models/${config.gemini.model}:generateContent?key=${key}`;
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      contents: [{ parts: [{ text: buildPrompt(t) }] }],
+      contents: [{ parts: [{ text: buildPrompt(t, forReel) }] }],
       generationConfig: { responseMimeType: "application/json", temperature: 0.9 },
     }),
     signal: AbortSignal.timeout(20_000),
@@ -118,13 +126,13 @@ let rotationIndex = 0;
 
 /** Returns card content, or null if the topic should be skipped.
  *  Rotates through all Gemini keys, trying the next on any failure. */
-export async function writeCard(t: Trend): Promise<CardContent | null> {
+export async function writeCard(t: Trend, forReel = false): Promise<CardContent | null> {
   const keys = config.gemini.keys;
   if (keys.length) {
     for (let i = 0; i < keys.length; i++) {
       const key = keys[(rotationIndex + i) % keys.length];
       try {
-        const result = await geminiWrite(t, key);
+        const result = await geminiWrite(t, key, forReel);
         rotationIndex = (rotationIndex + i + 1) % keys.length; // advance for next call
         return result; // may be null (topic skipped) — a valid result, not an error
       } catch (e) {

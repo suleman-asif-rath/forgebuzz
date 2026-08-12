@@ -78,7 +78,7 @@ export interface Settings {
   sources: { reddit: boolean; rss: boolean; hackernews: boolean; googlenews: boolean };
   voice: { cta: string; hashtagsCore: string[] };
   extraBlockedWords: string[]; // added to the built-in safety net
-  reel: { enabled: boolean; slotHour: number }; // one daily reel, at slotHour (local tz)
+  reel: { enabled: boolean; perDay: number }; // up to N short reels/day (1..3)
 }
 
 export interface GenerateSummary {

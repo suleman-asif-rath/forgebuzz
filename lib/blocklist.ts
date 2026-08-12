@@ -11,6 +11,9 @@ export const BLOCKED_TERMS: string[] = [
   "bomb", "bombing", "explosion", "war", "genocide", "hostage", "assault",
   "abuse", "victim", "crash", "wildfire", "earthquake", "flood", "hurricane",
   "disaster", "outbreak", "pandemic", "overdose",
+  // shocking / graphic (extra guard for edgier viral sources)
+  "gore", "graphic", "disturbing", "horrifying", "brutal", "injured",
+  "wounded", "accident", "tragedy", "tragic",
   // politics / division
   "trump", "biden", "election", "senate", "congress", "parliament",
   "president", "prime minister", "politic", "immigration", "abortion",

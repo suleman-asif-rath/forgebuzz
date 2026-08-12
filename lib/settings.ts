@@ -21,7 +21,7 @@ export function defaultSettings(): Settings {
       hashtagsCore: [...brand.caption.hashtagsCore],
     },
     extraBlockedWords: [],
-    reel: { enabled: true, slotHour: 19 },
+    reel: { enabled: true, perDay: 3 },
   };
 }
 
@@ -44,7 +44,7 @@ function merge(stored: Partial<Settings> | null): Settings {
     extraBlockedWords: stored.extraBlockedWords ?? d.extraBlockedWords,
     reel: {
       enabled: stored.reel?.enabled ?? d.reel.enabled,
-      slotHour: clampInt(stored.reel?.slotHour ?? d.reel.slotHour, 0, 23),
+      perDay: clampInt(stored.reel?.perDay ?? d.reel.perDay, 1, 3),
     },
   };
 }

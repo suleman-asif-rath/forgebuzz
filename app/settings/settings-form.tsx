@@ -113,8 +113,8 @@ export default function SettingsForm({ initial }: { initial: Settings }) {
 
         <div className="togglerow" style={{ marginTop: 16 }}>
           <div>
-            <div className="t-lbl">Daily reel</div>
-            <div className="t-sub">Post one short video reel each evening (~19:00 PKT) to Instagram &amp; Facebook: a stock clip with calming music and your branded cover.</div>
+            <div className="t-lbl">Reels</div>
+            <div className="t-sub">Post short video reels (a stock clip with calming music and your branded cover) to Instagram &amp; Facebook, spread across the day. Reels reach far more people than image posts.</div>
           </div>
           <label className="switch">
             <input type="checkbox" checked={s.reel.enabled}
@@ -122,6 +122,21 @@ export default function SettingsForm({ initial }: { initial: Settings }) {
             <span className="track" />
           </label>
         </div>
+
+        {s.reel.enabled ? (
+          <div className="field" style={{ marginTop: 12 }}>
+            <label>Reels per day</label>
+            <div className="chips">
+              {[1, 2, 3].map((n) => (
+                <span key={n} className={`chip ${s.reel.perDay === n ? "on" : ""}`}
+                  onClick={() => set("reel", { ...s.reel, perDay: n })}>
+                  {n}
+                </span>
+              ))}
+            </div>
+            <span className="sub">Posted around 10:00, 15:00 and 20:00 PKT (the first {s.reel.perDay} slot{s.reel.perDay > 1 ? "s are" : " is"} used).</span>
+          </div>
+        ) : null}
       </div>
 
       {/* Areas of interest */}
