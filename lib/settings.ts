@@ -11,6 +11,7 @@ export function defaultSettings(): Settings {
   return {
     postingEnabled: true,
     postsPerDay: config.postsPerDay,
+    postingMode: "variable",
     slotHours: [9, 11, 13, 15, 17, 19, 21],
     timezone: "Asia/Karachi",
     maxAgeHours: 18,
@@ -32,6 +33,7 @@ function merge(stored: Partial<Settings> | null): Settings {
   return {
     postingEnabled: stored.postingEnabled ?? d.postingEnabled,
     postsPerDay: clampInt(stored.postsPerDay ?? d.postsPerDay, 1, 12),
+    postingMode: stored.postingMode === "fixed" || stored.postingMode === "variable" ? stored.postingMode : d.postingMode,
     slotHours: Array.isArray(stored.slotHours) && stored.slotHours.length ? stored.slotHours : d.slotHours,
     timezone: stored.timezone || d.timezone,
     maxAgeHours: clampInt(stored.maxAgeHours ?? d.maxAgeHours, 3, 72),

@@ -84,7 +84,24 @@ export default function SettingsForm({ initial }: { initial: Settings }) {
         </div>
 
         <div className="field">
-          <label>Posting times</label>
+          <label>Posting time style</label>
+          <div className="chips">
+            <span className={`chip ${s.postingMode === "fixed" ? "on" : ""}`} onClick={() => set("postingMode", "fixed")}>
+              Fixed times
+            </span>
+            <span className={`chip ${s.postingMode === "variable" ? "on" : ""}`} onClick={() => set("postingMode", "variable")}>
+              Variable (spread out)
+            </span>
+          </div>
+          <span className="sub">
+            {s.postingMode === "variable"
+              ? "Posts (and reels) go out at randomized times spread across the hours below, different every day. Looks more natural — recommended."
+              : "Posts go out exactly at the hours you pick below."}
+          </span>
+        </div>
+
+        <div className="field">
+          <label>{s.postingMode === "variable" ? "Active hours (window)" : "Posting times"}</label>
           <div className="chips">
             {HOURS.map((h) => (
               <span key={h} className={`chip ${s.slotHours.includes(h) ? "on" : ""}`} onClick={() => toggleHour(h)}>
@@ -92,7 +109,11 @@ export default function SettingsForm({ initial }: { initial: Settings }) {
               </span>
             ))}
           </div>
-          <span className="sub">Times of day posts can go out. The first {s.postsPerDay} are used each day.</span>
+          <span className="sub">
+            {s.postingMode === "variable"
+              ? "In variable mode, posts are spread randomly between your earliest and latest selected hour."
+              : `Exact times posts can go out. The first ${s.postsPerDay} are used each day.`}
+          </span>
         </div>
 
         <div className="field">

@@ -71,7 +71,10 @@ export interface CategorySetting {
 export interface Settings {
   postingEnabled: boolean; // master switch: false pauses ALL publishing
   postsPerDay: number; // 1..12
-  slotHours: number[]; // posting hours in `timezone`, e.g. [9,12,15,18,21]
+  // "fixed" posts at the exact slotHours; "variable" spreads posts at randomized
+  // times across the day (different each day) for a more organic, less-automated feel.
+  postingMode: "fixed" | "variable";
+  slotHours: number[]; // fixed: exact posting hours; variable: the active window bounds
   timezone: string; // IANA tz, e.g. "Asia/Karachi"
   maxAgeHours: number; // news-like topics older than this are dropped (facts exempt)
   categories: Record<string, CategorySetting>; // keyed by brand category

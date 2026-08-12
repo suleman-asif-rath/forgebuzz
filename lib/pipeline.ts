@@ -29,7 +29,7 @@ export async function runGenerate(): Promise<GenerateSummary> {
     maxAgeHours: settings.maxAgeHours,
   });
 
-  const times = scheduleTimes(settings.slotHours, settings.timezone, picks.length);
+  const times = scheduleTimes(settings.slotHours, settings.timezone, picks.length, settings.postingMode);
   const rows: PostRow[] = [];
 
   for (let i = 0; i < picks.length; i++) {
@@ -89,6 +89,10 @@ function dayKey(d: Date, tz: string): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
 }
 
+// The UTC hours the reel workflow (reel.yml) fires at. MUST stay in sync with
+// that cron. Used by variable-timing odds and by the daily cap spreading.
+const REEL_SLOT_UTC = [5, 8, 11, 14, 16]; // 10:00/13:00/16:00/19:00/21:00 PKT
+
 export interface ReelSummary {
   mode: "queued" | "skipped";
   reason?: string;
@@ -117,6 +121,18 @@ export async function runReel(force = false): Promise<ReelSummary> {
   );
   if (!force && todayReels.length >= settings.reel.perDay) {
     return { mode: "skipped", reason: `daily reel limit reached (${todayReels.length}/${settings.reel.perDay})` };
+  }
+
+  // Variable timing: the reel workflow fires at several candidate slots; post at
+  // a random subset so reel times differ day to day. The needed/remaining odds
+  // still reliably hit `perDay` by the last slot (which forces a build).
+  if (!force && settings.postingMode === "variable") {
+    const utcHour = now.getUTCHours();
+    const remaining = Math.max(1, REEL_SLOT_UTC.filter((h) => h >= utcHour).length);
+    const needed = settings.reel.perDay - todayReels.length;
+    if (Math.random() >= needed / remaining) {
+      return { mode: "skipped", reason: `variable timing: holding this slot (${needed} left / ${remaining} slots)` };
+    }
   }
 
   const trends = await fetchAllTrends(settings.sources);

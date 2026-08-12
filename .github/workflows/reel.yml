@@ -1,14 +1,14 @@
 name: ForgeBuzz · Daily reel
 
-# Runs at three daily slots (05:00/10:00/15:00 UTC = 10:00/15:00/20:00 PKT),
-# spread across the day to hit different audience windows. Each run builds ONE
-# reel until the dashboard's "reels per day" cap is hit (default 3), so with the
-# cap at 1 or 2 the later slots simply skip. Building and publishing are two
-# separate calls so neither exceeds the serverless time budget; publish only runs
-# when a reel was queued.
+# Fires at five candidate slots (05/08/11/14/16 UTC = 10:00/13:00/16:00/19:00/
+# 21:00 PKT). Each run builds ONE reel until the dashboard's "reels per day" cap
+# is hit. In "fixed" mode the earliest slots are used; in "variable" mode a
+# random subset is used so reel times differ each day (see runReel). These UTC
+# hours MUST match REEL_SLOT_UTC in lib/pipeline.ts. Building and publishing are
+# separate calls so neither exceeds the serverless time budget.
 on:
   schedule:
-    - cron: "0 5,10,15 * * *"
+    - cron: "0 5,8,11,14,16 * * *"
   workflow_dispatch: {}
 
 jobs:
