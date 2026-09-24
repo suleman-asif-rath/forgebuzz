@@ -7,7 +7,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "check": "tsc scripts/content-rules.check.ts --outDir .checktmp --module commonjs --target es2020 --skipLibCheck --moduleResolution node --esModuleInterop && node .checktmp/scripts/content-rules.check.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",

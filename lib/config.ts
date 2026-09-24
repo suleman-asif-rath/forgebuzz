@@ -19,7 +19,13 @@ export const config = {
   gemini: {
     on: geminiKeys.length > 0,
     keys: geminiKeys,
-    model: "gemini-2.5-flash",
+    // Overridable so a model deprecation is an env change, not a deploy.
+    // gemini-2.5-flash was retired for new API keys ("no longer available to
+    // new users"), which silently 404'd newer keys — hence the default bump.
+    model: env.GEMINI_MODEL ?? "gemini-3.6-flash",
+    // Tried if the primary is retired or overloaded. Note: the
+    // "gemini-flash-latest" alias returns 503 consistently — do not use it.
+    fallbackModel: env.GEMINI_FALLBACK_MODEL ?? "gemini-3.5-flash",
   },
   pexels: {
     on: has(env.PEXELS_API_KEY),
@@ -58,8 +64,8 @@ export function isDryRun(): boolean {
 /** A short human summary of what's connected, for the dashboard banner. */
 export function serviceStatus() {
   return {
-    copywriter: config.gemini.on ? `Gemini 2.5 Flash (${config.gemini.keys.length} keys)` : "Local writer (fallback)",
-    backgrounds: config.pexels.on || config.pixabay.on ? "Pexels / Pixabay" : "Gradient (fallback)",
+    jokewriter: config.gemini.on ? `${config.gemini.model} (${config.gemini.keys.length} keys)` : "Not configured — no memes will be written",
+    photos: config.pexels.on || config.pixabay.on ? "Pexels / Pixabay" : "Gradient (fallback)",
     storage: config.supabase.on ? "Supabase" : "Local files (dev only)",
     posting: config.meta.on ? "Instagram + Facebook (LIVE)" : "Dry-run (not posting)",
   };

@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 // Facebook Page cover (1640x624; safe content centered for mobile cropping).
 const INK = "#0B1020";
 const TEXT = "#EDF1FA";
-const ACCENT = "#63C6F5";
+const ACCENT = "#FFA63D";
 const MUTED = "#9AA3B6";
 
 const FONT_DIR = path.join(process.cwd(), "brand", "fonts");
@@ -21,7 +21,7 @@ const FONTS = [
 const LOGO_SVG =
   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">` +
   `<defs><linearGradient id="g" x1="0" y1="1" x2="1" y2="0">` +
-  `<stop offset="0" stop-color="#3E86FF"/><stop offset="1" stop-color="#63C6F5"/></linearGradient></defs>` +
+  `<stop offset="0" stop-color="#FF3D71"/><stop offset="1" stop-color="#FFA63D"/></linearGradient></defs>` +
   `<rect x="8" y="8" width="104" height="104" rx="27" fill="url(#g)"/>` +
   `<path d="M60 22 C 62 48 72 58 98 60 C 72 62 62 72 60 98 C 58 72 48 62 22 60 C 48 58 58 48 60 22 Z" fill="#0B1020"/>` +
   `</svg>`;

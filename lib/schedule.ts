@@ -32,11 +32,36 @@ function todayInTz(tz: string): { year: number; month: number; day: number } {
   return { year: p.year, month: p.month, day: p.day };
 }
 
+/** Deterministic PRNG, so "variable" times are random-looking but STABLE for a
+ *  given day. Generation runs several times a day to stay inside the
+ *  serverless time budget, and every run must agree on the same slot list —
+ *  otherwise the later batches would reshuffle times already handed out. */
+function mulberry32(seed: number): () => number {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function hashSeed(s: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
 /** ISO times for the day's posting slots, in the configured timezone.
  *  - "fixed":    posts land exactly on the given slot hours (:00).
  *  - "variable": posts are spread at randomized times across the window
  *                [earliest slot .. latest slot], one per equal segment, so they
- *                stay well spread but fall at different times every day. */
+ *                stay well spread but fall at different times every day.
+ *                Stable within a day — see mulberry32 above. */
 export function scheduleTimes(
   slotHours: number[],
   timezone: string,
@@ -50,12 +75,14 @@ export function scheduleTimes(
     const start = hours[0];
     const end = Math.max(start + 1, Math.min(23, hours[hours.length - 1]));
     const span = end - start;
+    // Seeded on the day itself, so repeated runs produce the identical list.
+    const rand = mulberry32(hashSeed(`${year}-${month}-${day}-${timezone}-${count}`));
     const out: string[] = [];
     for (let i = 0; i < count; i++) {
       // Stratified random: one time inside segment i of `count`.
       const lo = start + (span * i) / count;
       const hi = start + (span * (i + 1)) / count;
-      const t = lo + Math.random() * (hi - lo);
+      const t = lo + rand() * (hi - lo);
       const h = Math.max(0, Math.min(23, Math.floor(t)));
       const mi = Math.max(0, Math.min(59, Math.floor((t - Math.floor(t)) * 60)));
       out.push(zonedTimeToUTC(year, month, day, h, mi, timezone).toISOString());

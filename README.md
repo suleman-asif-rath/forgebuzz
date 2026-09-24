@@ -1,16 +1,20 @@
 # ForgeBuzz
 
-Automated Instagram + Facebook branded-content platform for **@forgee.buzz**. It
-sources trending light/viral topics, writes a headline and caption, renders an
-on-brand card, and posts 5 to 7 times a day, hands-off. Built on Next.js +
-Vercel, scheduled by GitHub Actions, at $0 on free tiers.
+Automated Instagram + Facebook **meme page** for **@forgee.buzz**. It writes
+original memes about everyday life and animals, renders them as impact text over
+a stock photo, and posts 6 times a day plus up to 3 reels, hands-off. Built on
+Next.js + Vercel, scheduled by GitHub Actions, at $0 on free tiers.
+
+Every meme is **original**. ForgeBuzz never downloads, re-hosts, or reposts
+anyone else's meme image — so there is no copyright or credit exposure on the
+brand's accounts.
 
 ---
 
 ## Start here (morning quick look, ~3 minutes)
 
 You can see the whole thing working right now with **no accounts and no keys**.
-It runs in "dry-run" mode: it generates real branded cards but does not post.
+It runs in "dry-run" mode: it generates real memes but does not post.
 
 ```bash
 cd cantagio
@@ -18,16 +22,13 @@ npm install        # already done, safe to re-run
 npm run dev
 ```
 
-Open http://localhost:3000 and click **Generate today's posts**. Real cards
-appear from live trends. Then click **Publish due posts** (dry-run: it logs
-instead of posting). There are already 6 example cards from tonight's test run
-in the gallery.
+Open http://localhost:3000 and click **Generate today's posts**. Real memes
+appear. Then click **Publish due posts** (dry-run: it logs instead of posting).
 
-Preview a single card design in the browser:
+Preview the meme renderer directly in the browser:
 - http://localhost:3000/api/render
-- http://localhost:3000/api/render?template=fact&stat=8%20MIN&headline=is%20how%20long%20sunlight%20takes%20to%20reach%20Earth&category=DID%20YOU%20KNOW
-
-When you are ready to make it real, do the setup below.
+- http://localhost:3000/api/render?top=WHEN%20YOU%20SET%205%20ALARMS&bottom=AND%20WAKE%20UP%20AT%20NOON&photo=tired%20cat
+- http://localhost:3000/api/render?overlay=1 — the transparent text layer that gets burned onto reels
 
 ---
 
@@ -38,13 +39,12 @@ With no keys it uses safe fallbacks, so it always runs end to end.
 
 | Service | With key | Without key (fallback) |
 | --- | --- | --- |
-| Copywriter | Google Gemini 2.5 Flash | Built-in local writer |
-| Backgrounds | Pexels photos | Branded gradient |
+| Joke writer | Google Gemini 2.5 Flash | Built-in local writer |
+| Photos / clips | Pexels + Pixabay | Branded gradient |
 | Storage | Supabase (Postgres + Storage) | Local files (dev only) |
 | Posting | Instagram + Facebook (LIVE) | Dry-run (logs only) |
 
-Posting goes LIVE only when all three Meta keys are set. Everything else is
-optional and only improves quality.
+Posting goes LIVE only when all three Meta keys are set.
 
 ---
 
@@ -52,15 +52,20 @@ optional and only improves quality.
 
 ### 1. Get your keys (all free)
 
-**Gemini (captions).** https://aistudio.google.com -> Get API key. Copy it.
+**Gemini (jokes).** https://aistudio.google.com -> Get API key. Multiple keys
+can be supplied comma-separated as `GEMINI_API_KEYS` — the writer rotates
+through them, so a rate-limited key rolls over instead of failing.
 
-**Pexels (photos).** https://www.pexels.com/api/ -> create a key.
+**Pexels / Pixabay (photos + stock clips).** https://www.pexels.com/api/ and
+https://pixabay.com/api/docs/ -> create a key on each.
 
 **Supabase (storage + queue).**
 1. https://supabase.com -> New project. Note the Project URL and the
    `service_role` key (Project Settings -> API).
 2. SQL Editor -> paste and run `supabase/schema.sql`.
 3. Storage -> New bucket -> name it `forgebuzz` -> make it **Public**.
+4. Upload the reel music to a `music/` folder in that bucket, or run
+   `python scripts/generate-music.py --upload` to synthesise and upload it.
 
 **Meta (Instagram + Facebook).** This is the fiddly one.
 1. Convert your Instagram to a **Professional (Business or Creator)** account.
@@ -91,13 +96,13 @@ Any key you leave blank simply keeps that service in fallback mode. Restart
 1. Create an empty GitHub repo `forgebuzz` and push this folder to it.
 2. https://vercel.com -> New Project -> import the repo.
 3. In Vercel Project Settings -> Environment Variables, add every value from
-   your `.env.local`. Set `PUBLIC_BASE_URL` to your Vercel URL
-   (e.g. `https://forgebuzz.vercel.app`) and set a random `CRON_SECRET`.
+   your `.env.local`. Set `PUBLIC_BASE_URL` to your Vercel URL and set a random
+   `CRON_SECRET`.
 4. Deploy.
 
 > Storage note: Vercel's filesystem is temporary, so the local file store does
 > NOT work in production. Supabase must be configured before deploying (the app
-> uses it for both the queue and the card images).
+> uses it for the queue, the meme images, the reels, and the music).
 
 ### 4. Turn on the automatic timers
 
@@ -105,9 +110,10 @@ In the GitHub repo -> Settings -> Secrets and variables -> Actions, add:
 - `FORGEBUZZ_URL` = your Vercel URL (no trailing slash)
 - `CRON_SECRET` = the same value you set in Vercel
 
-The two workflows then run themselves:
+The three workflows then run themselves:
 - `generate.yml` fills the day's queue each morning (04:00 UTC = 09:00 PKT).
-- `publish.yml` posts whatever is due, every hour.
+- `publish.yml` posts whatever is due, every 20 minutes.
+- `reel.yml` builds a reel at five candidate slots, up to your daily cap.
 
 You can also run them by hand from the repo's **Actions** tab.
 
@@ -122,16 +128,17 @@ the pipeline on its **next run**, so there is nothing to redeploy.
 - **Overview** — service status, today's counts (in queue / posted / failed),
   the big **Posting ON / PAUSED** switch, and the Generate / Publish buttons.
 - **Settings**
-  - **Posting & frequency**: master pause switch, posts per day, the posting
-    time slots, and your timezone.
-  - **Areas of interest**: turn each topic area on or off and set how often it
-    appears (a priority from Rare to Often).
-  - **News freshness**: a max-age (hours) so news-like posts must be recent
-    (12 to 18 recommended); timeless "Did You Know" facts are exempt.
-  - **Trend sources**: toggle Google News, Reddit, News RSS, and Hacker News.
+  - **Posting & frequency**: master pause switch, posts per day, fixed vs
+    variable posting times, the time slots, your timezone, and reels per day.
+  - **Humor lanes**: turn each kind of joke on or off and set how often it
+    appears — RELATABLE, WORK, SLEEP, FOOD, MONEY, ANIMALS.
+  - **Meme fuel**: the built-in seed bank (always available) and Reddit sparks
+    (titles only), with a freshness limit for the Reddit side.
+  - **Humor edge**: Clean / PG-13 / Sharp. Moves the profanity and sarcasm dial
+    only — the hard lines are blocked at every level and cannot be turned off.
   - **Voice**: your caption call-to-action and the core hashtags on every post.
   - **Safety net**: add your own extra blocked words on top of the built-in list.
-- **Queue** — every generated post with its status and scheduled time; delete
+- **Queue** — every generated meme with its status and scheduled time; delete
   any you do not want.
 
 The **master switch** is the important one: flip it to PAUSED and nothing gets
@@ -147,19 +154,28 @@ posted, while the queue keeps filling so you can resume any time.
 ```
 GitHub Actions (timer)
   -> POST /api/generate   (morning)
-       fetch trends (Google News, Reddit, RSS, Hacker News)
-       -> safety filter + freshness (max-age) + de-dupe + rank + pick 6
-       -> Gemini writes headline + caption + hashtags
-       -> Pexels background
-       -> @vercel/og renders the branded card (PNG)
+       premises.ts  seed bank (200+ hand-written premises)
+       memeFuel.ts  Reddit TITLES ONLY as extra sparks
+       -> ideas.ts      safety filter + de-dupe + weighted lane pick
+       -> jokewriter.ts Gemini writes topText / bottomText / caption
+       -> blocklist     word check over the finished joke
+       -> reviewer.ts   Gemini: "would this embarrass the brand?"
+       -> Pexels photo
+       -> render.tsx    impact text over the photo (PNG)
        -> save image + enqueue with a staggered post time
-  -> POST /api/publish     (hourly)
+
+  -> POST /api/reel      (five candidate slots)
+       same joke pipeline, then:
+       -> stock clip + transparent text overlay + royalty-free music
+       -> mux.ts burns it all together with ffmpeg, grabs a cover frame
+
+  -> POST /api/publish   (every 20 min)
        find posts whose time has come
-       -> post image to Instagram + Facebook (Meta Graph API)
-       -> mark posted, remember the topic so it never repeats
+       -> post to Instagram + Facebook (Meta Graph API)
+       -> mark posted, remember the premise so it never repeats
 ```
 
-Branding cannot drift: every card is drawn from one template using the tokens
+Branding cannot drift: every meme is drawn from one template using the tokens
 in `brand/brand.ts`, with the fonts in `brand/fonts/`.
 
 ## Project structure
@@ -170,36 +186,55 @@ app/
   page.tsx        Control-room dashboard
   actions.tsx     Generate / Publish buttons
   api/generate/   Build the day's queue
+  api/reel/       Build one meme reel
   api/publish/    Post due items
-  api/render/     Live single-card preview
+  api/render/     Live meme preview
 lib/
-  trends.ts       Reddit + RSS + Hacker News sourcing
-  blocklist.ts    Safety word list (the hands-off guardrail)
-  filter.ts       Safety filter + de-dupe + category-balanced pick
-  copywriter.ts   Gemini writer (+ local fallback) + caption assembly
-  pexels.ts       Background photo lookup
-  render.tsx      The card renderer (the branding engine)
+  premises.ts     The seed bank — 200+ joke premises (plain data)
+  memeFuel.ts     Reddit titles as extra sparks (never their images)
+  ideas.ts        Safety filter + de-dupe + weighted lane pick
+  jokewriter.ts   Gemini joke writer (+ local fallback) + caption assembly
+  reviewer.ts     Second pass: "would this embarrass the brand?"
+  blocklist.ts    Safety word lists (the hands-off guardrail)
+  render.tsx      The meme renderer (impact text, outline, watermark)
+  pexels.ts       Photo lookup
+  stockVideo.ts   Stock clip lookup for reels
+  music.ts        Royalty-free reel music
+  mux.ts          ffmpeg: burn the joke on, mix music, grab a cover frame
   meta.ts         Instagram + Facebook publisher
   store.ts        Supabase store (prod) / local file store (dev)
-  pipeline.ts     Ties generate + publish together
+  pipeline.ts     Ties generate + reel + publish together
   config.ts       Reads env, decides which services are live
-supabase/schema.sql   Run once in Supabase
-.github/workflows/    The two timers
+scripts/
+  generate-music.py      Synthesise + upload the reel music
+  flush-news-queue.mjs   One-off: clear unposted items (used for the meme pivot)
+supabase/schema.sql      Run once in Supabase
+.github/workflows/       The three timers
 ```
 
 ## Safety and limits
 
-- **Safety filter** (`lib/blocklist.ts`) drops anything political, tragic, adult,
-  or otherwise sensitive before it can be posted. This is the guardrail that
-  makes a fully hands-off account safe. Widen it any time.
-- **Instagram** allows 25 API posts per 24 hours; 5 to 7 is well within limits.
-- **Costs** stay at $0 on the listed free tiers. If a free limit is ever hit,
-  that service falls back instead of charging you.
+Because nothing is reviewed by a human before it posts, there are three nets:
+
+1. **Premise blocklist** (`lib/blocklist.ts`) drops anything hateful, political,
+   religious, tragic, sexual, or news-like *before* a joke is written.
+2. **Output blocklist** re-checks the finished joke. Profanity depends on the
+   dashboard's humor edge; the hard lines are absolute at every level.
+3. **The reviewer** (`lib/reviewer.ts`) asks Gemini whether the meme would
+   embarrass the brand. This catches what a word list cannot — a joke that is
+   technically clean but mean or bleak.
+
+Other limits:
+- **Instagram** allows 25 API posts per 24 hours; 6 images + 3 reels is well
+  within limits.
+- **Costs** stay at $0 on the listed free tiers.
 - **Token expiry**: the Meta Page token lasts ~60 days. Regenerate it and update
   `META_PAGE_TOKEN` when the logs report a code-190 error.
 
 ## Tuning
 
-- `POSTS_PER_DAY` (default 6). Posting slots are 09/11/13/15/17/19/21 local.
-- Add or change trend sources in `lib/trends.ts`.
-- Adjust the voice/brand in `brand/brand.ts` and the safety net in `lib/blocklist.ts`.
+- Add premises to `lib/premises.ts` — one line each, no code changes needed.
+- Adjust the voice and palette in `brand/brand.ts`.
+- Widen the safety net in `lib/blocklist.ts` or from the dashboard.
+- Reels are capped at 15s and re-encoded at `ultrafast` to fit the serverless
+  time budget (measured: ~7s for a 1080x1920 clip).

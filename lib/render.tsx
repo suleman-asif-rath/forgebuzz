@@ -1,14 +1,13 @@
 import { ImageResponse } from "next/og";
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import type { CardSpec } from "./types";
+import type { MemeSpec } from "./types";
 
 // --- brand constants (kept in sync with brand/brand.ts) ------------
-const INK = "#0B1020";
-const TEXT = "#EDF1FA";
-const MUTED = "#8B93A8";
-const ACCENT = "#63C6F5"; // solid stand-in for the gradient (Satori can't clip text)
-const SIGNAL = "linear-gradient(135deg, #3E86FF 0%, #63C6F5 100%)";
+const INK = "#0F1117";
+const MEME_WHITE = "#FFFFFF"; // meme text is pure white on purpose — it is not body text
+const OUTLINE = "#000000";
+const OUTLINE_W = 7;
 
 const FONT_DIR = path.join(process.cwd(), "brand", "fonts");
 const fontFile = (f: string) => readFileSync(path.join(FONT_DIR, f));
@@ -21,252 +20,213 @@ const FONTS = [
   { name: "Manrope", data: fontFile("manrope-800.woff"), weight: 800 as const, style: "normal" as const },
 ];
 
-// The Spark-Tile logo, inlined as an SVG data URI so Satori can rasterise it.
-const LOGO_SVG =
-  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">` +
-  `<defs><linearGradient id="g" x1="0" y1="1" x2="1" y2="0">` +
-  `<stop offset="0" stop-color="#3E86FF"/><stop offset="1" stop-color="#63C6F5"/></linearGradient></defs>` +
-  `<rect x="8" y="8" width="104" height="104" rx="27" fill="url(#g)"/>` +
-  `<path d="M60 22 C 62 48 72 58 98 60 C 72 62 62 72 60 98 C 58 72 48 62 22 60 C 48 58 58 48 60 22 Z" fill="#0B1020"/>` +
-  `</svg>`;
-const LOGO_URI = `data:image/svg+xml;base64,${Buffer.from(LOGO_SVG).toString("base64")}`;
-
-function headlineSize(len: number): number {
-  if (len <= 30) return 116;
-  if (len <= 52) return 94;
-  if (len <= 78) return 74;
-  return 60;
+/** The meme-text outline.
+ *
+ *  Satori does not reliably support `-webkit-text-stroke`, so the black outline
+ *  is built from layered text-shadows ringing the glyph. 16 points around the
+ *  circle plus the cardinals reads as a solid stroke at meme sizes; fewer
+ *  points leaves visible gaps on diagonal strokes.
+ */
+function outlineShadow(width = OUTLINE_W, color = OUTLINE): string {
+  const layers: string[] = [];
+  const steps = 16;
+  for (let i = 0; i < steps; i++) {
+    const a = (i / steps) * Math.PI * 2;
+    const x = Math.round(Math.cos(a) * width * 100) / 100;
+    const y = Math.round(Math.sin(a) * width * 100) / 100;
+    layers.push(`${x}px ${y}px 0 ${color}`);
+  }
+  // A soft drop shadow underneath lifts the text off a busy photo.
+  layers.push(`0 ${Math.round(width * 0.9)}px ${width * 2}px rgba(0,0,0,0.55)`);
+  return layers.join(", ");
 }
 
-function gradientFor(spec: CardSpec): string {
-  if (spec.template === "fact") return "linear-gradient(160deg, #18233f 0%, #0B1020 72%)";
-  if (spec.category === "SPACE") return "linear-gradient(160deg, #101a33 0%, #05070f 90%)";
-  return "linear-gradient(160deg, #142446 0%, #070b16 92%)";
+const MEME_SHADOW = outlineShadow();
+
+/** Meme text shrinks as it gets longer so a long line never overflows. */
+function memeSize(len: number, base: number): number {
+  if (len <= 18) return base;
+  if (len <= 28) return Math.round(base * 0.86);
+  if (len <= 40) return Math.round(base * 0.72);
+  if (len <= 56) return Math.round(base * 0.6);
+  return Math.round(base * 0.5);
 }
 
-function CardElement(spec: CardSpec) {
-  const usePhoto = spec.template !== "fact" && !!spec.backgroundUrl;
-  const hSize = headlineSize(spec.headline.length);
+function MemeText({ text, size }: { text: string; size: number }) {
+  return (
+    <span
+      style={{
+        fontFamily: "Anton",
+        fontSize: size,
+        lineHeight: 1.02,
+        color: MEME_WHITE,
+        textTransform: "uppercase",
+        textAlign: "center",
+        letterSpacing: 0.5,
+        textShadow: MEME_SHADOW,
+        // Satori needs an explicit width to wrap centred text predictably.
+        width: "100%",
+        display: "flex",
+        justifyContent: "center",
+      }}
+    >
+      {text}
+    </span>
+  );
+}
+
+function Watermark({ size = 26 }: { size?: number }) {
+  return (
+    <span
+      style={{
+        fontFamily: "Manrope",
+        fontWeight: 800,
+        fontSize: size,
+        letterSpacing: 3,
+        textTransform: "lowercase",
+        color: "rgba(255,255,255,0.88)",
+        textShadow: outlineShadow(3),
+      }}
+    >
+      @forgee.buzz
+    </span>
+  );
+}
+
+// --- the still meme (1080x1350, IG 4:5) -----------------------------
+
+function MemeCard(spec: MemeSpec) {
+  const W = 1080;
+  const H = 1350;
+  const hasTop = !!spec.topText;
+  const hasBottom = !!spec.bottomText;
 
   return (
     <div
       style={{
-        width: 1080,
-        height: 1350,
+        width: W,
+        height: H,
         display: "flex",
         position: "relative",
         backgroundColor: INK,
-        color: TEXT,
         fontFamily: "Manrope",
       }}
     >
-      {/* background */}
-      {usePhoto ? (
+      {/* the photo the joke sits on */}
+      {spec.photoUrl ? (
         <img
-          src={spec.backgroundUrl as string}
-          width={1080}
-          height={1350}
-          style={{ position: "absolute", top: 0, left: 0, width: 1080, height: 1350, objectFit: "cover" }}
+          src={spec.photoUrl}
+          width={W}
+          height={H}
+          style={{ position: "absolute", top: 0, left: 0, width: W, height: H, objectFit: "cover" }}
         />
       ) : (
-        <div style={{ position: "absolute", top: 0, left: 0, width: 1080, height: 1350, backgroundImage: gradientFor(spec) }} />
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: W,
+            height: H,
+            backgroundImage: "linear-gradient(150deg, #2A1B2E 0%, #0F1117 78%)",
+          }}
+        />
       )}
 
-      {/* scrim for legibility */}
+      {/* a light scrim top and bottom so white text survives a bright photo */}
       <div
         style={{
           position: "absolute",
           top: 0,
           left: 0,
-          width: 1080,
-          height: 1350,
+          width: W,
+          height: H,
           backgroundImage:
-            "linear-gradient(180deg, rgba(11,16,32,0.45) 0%, rgba(11,16,32,0) 30%, rgba(11,16,32,0.20) 55%, rgba(11,16,32,0.94) 100%)",
+            "linear-gradient(180deg, rgba(0,0,0,0.42) 0%, rgba(0,0,0,0) 26%, rgba(0,0,0,0) 68%, rgba(0,0,0,0.52) 100%)",
         }}
       />
 
-      {/* content */}
+      {/* the joke */}
       <div
         style={{
           position: "relative",
           display: "flex",
           flexDirection: "column",
-          justifyContent: "space-between",
-          width: 1080,
-          height: 1350,
-          padding: 72,
+          justifyContent: hasTop && hasBottom ? "space-between" : hasTop ? "flex-start" : "flex-end",
+          alignItems: "center",
+          width: W,
+          height: H,
+          paddingTop: 56,
+          paddingLeft: 56,
+          paddingRight: 56,
+          // Extra clearance so a bottom line never crowds the watermark.
+          paddingBottom: 104,
         }}
       >
-        {/* top row */}
-        <div style={{ display: "flex", flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", width: "100%" }}>
-          <div style={{ display: "flex", flexDirection: "row", alignItems: "center" }}>
-            <img src={LOGO_URI} width={92} height={92} style={{ width: 92, height: 92 }} />
-            <span style={{ fontFamily: "Anton", fontSize: 46, textTransform: "uppercase", letterSpacing: 1, marginLeft: 18 }}>
-              Forge
-            </span>
-            <span style={{ fontFamily: "Anton", fontSize: 46, textTransform: "uppercase", letterSpacing: 1, color: ACCENT }}>
-              Buzz
-            </span>
-          </div>
-          <div
-            style={{
-              display: "flex",
-              backgroundImage: SIGNAL,
-              color: "#071022",
-              fontWeight: 800,
-              fontSize: 26,
-              letterSpacing: 2,
-              textTransform: "uppercase",
-              padding: "12px 24px",
-              borderRadius: 999,
-            }}
-          >
-            {spec.category}
-          </div>
-        </div>
-
-        {/* bottom block */}
-        <div style={{ display: "flex", flexDirection: "column" }}>
-          {spec.template === "fact" && spec.stat ? (
-            <div style={{ display: "flex", flexDirection: "column" }}>
-              <span style={{ fontFamily: "Anton", fontSize: 200, lineHeight: 0.88, color: ACCENT, textTransform: "uppercase" }}>
-                {spec.stat}
-              </span>
-              <span style={{ fontFamily: "Anton", fontSize: 52, lineHeight: 1.0, textTransform: "uppercase", marginTop: 8 }}>
-                {spec.headline}
-              </span>
-            </div>
-          ) : (
-            <span style={{ fontFamily: "Anton", fontSize: hSize, lineHeight: 0.95, textTransform: "uppercase" }}>
-              {spec.headline}
-            </span>
-          )}
-          {spec.source ? (
-            <span style={{ fontFamily: "Manrope", fontSize: 26, color: MUTED, marginTop: 22 }}>
-              via {spec.source}
-            </span>
-          ) : null}
-        </div>
+        {hasTop ? <MemeText text={spec.topText} size={memeSize(spec.topText.length, 92)} /> : null}
+        {hasBottom ? <MemeText text={spec.bottomText} size={memeSize(spec.bottomText.length, 92)} /> : null}
       </div>
 
       {/* watermark */}
-      <div style={{ position: "absolute", bottom: 40, left: 0, width: 1080, display: "flex", justifyContent: "center" }}>
-        <span style={{ fontFamily: "Manrope", fontWeight: 700, fontSize: 26, letterSpacing: 6, textTransform: "uppercase", color: "rgba(237,241,250,0.72)" }}>
-          @forgee.buzz
-        </span>
+      <div style={{ position: "absolute", bottom: 22, right: 30, display: "flex" }}>
+        <Watermark />
       </div>
     </div>
   );
 }
 
-/** Render a card to PNG bytes (1080x1350). */
-export async function renderCardPng(spec: CardSpec): Promise<Buffer> {
-  const res = new ImageResponse(CardElement(spec), {
-    width: 1080,
-    height: 1350,
-    fonts: FONTS,
-  });
+/** Render a meme to PNG bytes (1080x1350). */
+export async function renderMemePng(spec: MemeSpec): Promise<Buffer> {
+  const res = new ImageResponse(MemeCard(spec), { width: 1080, height: 1350, fonts: FONTS });
   return Buffer.from(await res.arrayBuffer());
 }
 
-// --- Reel cover (9:16) ---------------------------------------------
-// The video body is stock footage, so the cover carries the brand: it's the
-// thumbnail people see in the grid and before the reel plays.
-function reelHeadlineSize(len: number): number {
-  if (len <= 28) return 104;
-  if (len <= 50) return 84;
-  if (len <= 76) return 66;
-  return 54;
-}
+// --- the reel text overlay (1080x1920, transparent) ------------------
+// Rendered with no background so ffmpeg can composite it straight onto the
+// stock clip (see lib/mux.ts). The bottom text sits well above the bottom edge
+// because Instagram's own UI covers roughly the lowest fifth of a reel.
 
-function ReelCover(spec: CardSpec) {
-  const hSize = reelHeadlineSize(spec.headline.length);
+function ReelOverlay(spec: MemeSpec) {
+  const W = 1080;
+  const H = 1920;
+  const hasTop = !!spec.topText;
+  const hasBottom = !!spec.bottomText;
+
   return (
     <div
       style={{
-        width: 1080,
-        height: 1920,
+        width: W,
+        height: H,
         display: "flex",
         flexDirection: "column",
-        justifyContent: "space-between",
-        position: "relative",
-        backgroundColor: INK,
-        backgroundImage: "linear-gradient(160deg, #142446 0%, #070b16 92%)",
-        color: TEXT,
+        justifyContent: hasTop && hasBottom ? "space-between" : hasTop ? "flex-start" : "flex-end",
+        alignItems: "center",
+        backgroundColor: "transparent",
         fontFamily: "Manrope",
-        padding: 84,
+        paddingTop: 170,
+        paddingLeft: 60,
+        paddingRight: 60,
+        paddingBottom: 380, // clear of the IG caption / action rail
       }}
     >
-      {/* top row: logo + category */}
-      <div style={{ display: "flex", flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", width: "100%" }}>
-        <div style={{ display: "flex", flexDirection: "row", alignItems: "center" }}>
-          <img src={LOGO_URI} width={96} height={96} style={{ width: 96, height: 96 }} />
-          <span style={{ fontFamily: "Anton", fontSize: 50, textTransform: "uppercase", letterSpacing: 1, marginLeft: 18 }}>Forge</span>
-          <span style={{ fontFamily: "Anton", fontSize: 50, textTransform: "uppercase", letterSpacing: 1, color: ACCENT }}>Buzz</span>
-        </div>
-        <div
-          style={{
-            display: "flex",
-            backgroundImage: SIGNAL,
-            color: "#071022",
-            fontWeight: 800,
-            fontSize: 28,
-            letterSpacing: 2,
-            textTransform: "uppercase",
-            padding: "12px 26px",
-            borderRadius: 999,
-          }}
-        >
-          {spec.category}
-        </div>
-      </div>
-
-      {/* centre: play chip + headline */}
-      <div style={{ display: "flex", flexDirection: "column" }}>
-        <div style={{ display: "flex", flexDirection: "row", alignItems: "center", marginBottom: 40 }}>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: 96,
-              height: 96,
-              borderRadius: 999,
-              backgroundImage: SIGNAL,
-              color: "#071022",
-              fontSize: 46,
-            }}
-          >
-            ▶
-          </div>
-          <span style={{ fontFamily: "Manrope", fontWeight: 800, fontSize: 30, letterSpacing: 6, textTransform: "uppercase", color: "rgba(237,241,250,0.8)", marginLeft: 24 }}>
-            Watch
-          </span>
-        </div>
-        <span style={{ fontFamily: "Anton", fontSize: hSize, lineHeight: 0.96, textTransform: "uppercase" }}>
-          {spec.headline}
-        </span>
-        {spec.source ? (
-          <span style={{ fontFamily: "Manrope", fontSize: 28, color: MUTED, marginTop: 26 }}>via {spec.source}</span>
-        ) : null}
-      </div>
-
-      {/* watermark */}
-      <div style={{ display: "flex", justifyContent: "center", width: "100%" }}>
-        <span style={{ fontFamily: "Manrope", fontWeight: 700, fontSize: 28, letterSpacing: 6, textTransform: "uppercase", color: "rgba(237,241,250,0.72)" }}>
-          @forgee.buzz
-        </span>
-      </div>
+      {hasTop ? <MemeText text={spec.topText} size={memeSize(spec.topText.length, 86)} /> : null}
+      {hasBottom ? <MemeText text={spec.bottomText} size={memeSize(spec.bottomText.length, 86)} /> : null}
     </div>
   );
 }
 
-/** Render a reel cover / thumbnail to PNG bytes (1080x1920). */
-export async function renderReelCoverPng(spec: CardSpec): Promise<Buffer> {
-  const res = new ImageResponse(ReelCover(spec), {
-    width: 1080,
-    height: 1920,
-    fonts: FONTS,
-  });
+/** Render the reel's text as a transparent PNG (1080x1920) for compositing. */
+export async function renderMemeOverlayPng(spec: MemeSpec): Promise<Buffer> {
+  const res = new ImageResponse(ReelOverlay(spec), { width: 1080, height: 1920, fonts: FONTS });
+  return Buffer.from(await res.arrayBuffer());
+}
+
+/** Fallback reel cover (1080x1920) used only when a real frame cannot be
+ *  grabbed from the finished video. Same joke, on the gradient. */
+export async function renderReelCoverPng(spec: MemeSpec): Promise<Buffer> {
+  const res = new ImageResponse(
+    MemeCard({ ...spec, photoUrl: spec.photoUrl ?? null }),
+    { width: 1080, height: 1350, fonts: FONTS },
+  );
   return Buffer.from(await res.arrayBuffer());
 }

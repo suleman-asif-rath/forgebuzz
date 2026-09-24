@@ -25,8 +25,8 @@ export default async function Page() {
       <PostingToggle initial={settings.postingEnabled} />
 
       <div className="statusgrid">
-        <div className="status"><div className="k">Copywriter</div><div className="v">{status.copywriter}</div></div>
-        <div className="status"><div className="k">Backgrounds</div><div className="v">{status.backgrounds}</div></div>
+        <div className="status"><div className="k">Joke writer</div><div className="v">{status.jokewriter}</div></div>
+        <div className="status"><div className="k">Photos</div><div className="v">{status.photos}</div></div>
         <div className="status"><div className="k">Storage</div><div className="v">{status.storage}</div></div>
         <div className="status"><div className="k">Posting</div><div className={`v ${dry ? "dry" : "live"}`}>{status.posting}</div></div>
       </div>
@@ -40,16 +40,16 @@ export default async function Page() {
 
       {dry ? (
         <div className="banner">
-          <b>Dry-run mode.</b> Real branded cards are generated, but nothing is posted to
+          <b>Dry-run mode.</b> Real memes are generated, but nothing is posted to
           Instagram or Facebook yet. Add your Meta keys to go live.
         </div>
       ) : null}
 
       <Actions />
 
-      <div className="sectitle">Latest cards · <Link href="/queue" style={{ color: "var(--sig-to)" }}>see full queue</Link></div>
+      <div className="sectitle">Latest memes · <Link href="/queue" style={{ color: "var(--sig-to)" }}>see full queue</Link></div>
       {recent.length === 0 ? (
-        <div className="empty">No posts yet. Click <b>Generate today&apos;s posts</b> to create the first batch.</div>
+        <div className="empty">No memes yet. Click <b>Generate today&apos;s posts</b> to create the first batch.</div>
       ) : (
         <div className="grid">
           {recent.map((p) => {

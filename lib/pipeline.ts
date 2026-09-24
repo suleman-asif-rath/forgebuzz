@@ -1,90 +1,196 @@
 import { isDryRun } from "./config";
 import { getSettings } from "./settings";
-import { fetchAllTrends } from "./trends";
-import { pickTrends } from "./filter";
-import { writeCard, assembleCaption } from "./copywriter";
+import { gatherPremises, pickPremises } from "./ideas";
+import { writeMeme, assembleCaption, flattenJoke } from "./jokewriter";
+import { reviewMeme } from "./reviewer";
+import { isUnsafeOutput } from "./blocklist";
 import { findBackground } from "./pexels";
 import { findStockVideo } from "./stockVideo";
 import { pickMusicUrl } from "./music";
-import { muxMusicOntoVideo } from "./mux";
-import { renderCardPng, renderReelCoverPng } from "./render";
+import { buildReel } from "./mux";
+import { renderMemePng, renderMemeOverlayPng, renderReelCoverPng } from "./render";
 import { getStore } from "./store";
 import { publishBoth, publishReel } from "./meta";
 import { scheduleTimes } from "./schedule";
 import { newId, fingerprint } from "./util";
-import type { CategorySetting, GenerateSummary, PostRow, PublishSummary, Settings, Trend } from "./types";
+import type {
+  GenerateSummary,
+  LaneSetting,
+  MemeContent,
+  Premise,
+  PostRow,
+  PublishSummary,
+  Settings,
+} from "./types";
+
+/** Serverless runs are capped at 60s. Stop starting new work past this so the
+ *  posts already built get written to the queue instead of the whole run
+ *  timing out with nothing to show. */
+const TIME_BUDGET_MS = 45_000;
+
+/** Write a joke and put it through both safety nets.
+ *  Returns null when the premise should be abandoned and the next one tried. */
+async function safeWrite(
+  p: Premise,
+  settings: Settings,
+  forReel: boolean,
+  skipped: string[],
+): Promise<MemeContent | null> {
+  const content = await writeMeme(p, settings.humorEdge, forReel);
+  if (!content) {
+    skipped.push(`writer skipped: ${p.premise}`);
+    return null;
+  }
+
+  // Net 1: the word blocklist, over the finished joke.
+  const joke = `${content.topText} ${content.bottomText} ${content.captionLine}`;
+  if (isUnsafeOutput(joke, settings.humorEdge, settings.extraBlockedWords)) {
+    skipped.push(`blocked (output): ${flattenJoke(content)}`);
+    return null;
+  }
+
+  // Net 2: would this embarrass the brand? The page posts unattended, so this
+  // catches what a word list cannot.
+  const verdict = await reviewMeme(content);
+  if (!verdict.ok) {
+    skipped.push(`reviewer rejected (${verdict.reason}): ${flattenJoke(content)}`);
+    return null;
+  }
+
+  // Apply the dashboard voice settings.
+  content.cta = settings.voice.cta;
+  content.hashtags = [...new Set([...settings.voice.hashtagsCore, ...content.hashtags])].slice(0, 12);
+  return content;
+}
+
+/** Write, vet, illustrate and store one image meme.
+ *  Returns null when the premise fell through any net — the caller just moves
+ *  on to the next candidate. */
+async function buildImageRow(
+  p: Premise,
+  settings: Settings,
+  skipped: string[],
+): Promise<PostRow | null> {
+  try {
+    const content = await safeWrite(p, settings, false, skipped);
+    if (!content) return null;
+
+    const photoUrl = await findBackground(content.photoKeyword);
+    const png = await renderMemePng({
+      topText: content.topText,
+      bottomText: content.bottomText,
+      photoUrl,
+    });
+    const id = newId();
+    const { imagePath, imageUrl } = await getStore().saveImage(id, png);
+    return {
+      id,
+      createdAt: new Date().toISOString(),
+      scheduledFor: "", // filled in by the caller, once the day's count is known
+      status: "queued",
+      mediaType: "image",
+      category: content.lane,
+      template: "impact",
+      headline: flattenJoke(content),
+      caption: assembleCaption(content),
+      hashtags: content.hashtags,
+      source: p.source,
+      sourceUrl: p.url ?? "",
+      topicFingerprint: fingerprint(p.premise),
+      imagePath,
+      imageUrl,
+      fbId: null,
+      igId: null,
+      error: null,
+    };
+  } catch (e) {
+    skipped.push(`render failed: ${p.premise} (${(e as Error).message})`);
+    return null;
+  }
+}
+
+/** How many image memes one invocation will build. A full day does not fit in a
+ *  single 60s serverless run — two Gemini calls, a photo lookup, a render and
+ *  an upload per post adds up — so generation is incremental: the workflow
+ *  calls /api/generate repeatedly until the day is full. */
+const MAX_PER_RUN = 3;
 
 export async function runGenerate(): Promise<GenerateSummary> {
+  const started = Date.now();
   const store = getStore();
   const settings = await getSettings();
   const mode = isDryRun() ? "dry-run" : "live";
 
-  const trends = await fetchAllTrends(settings.sources);
+  // What is already in place for today? Repeated calls top the day up rather
+  // than starting over, and a re-run after the day is full does nothing.
+  const tz = settings.timezone;
+  const today = dayKey(new Date(), tz);
+  const recent = await store.listRecent(60);
+  const todayImages = recent.filter(
+    (r) => r.mediaType === "image" && r.status !== "failed" && dayKey(new Date(r.createdAt), tz) === today,
+  );
+  const alreadyDone = todayImages.length;
+  const remaining = Math.max(0, settings.postsPerDay - alreadyDone);
+  if (remaining === 0) {
+    return { mode, picked: 0, queued: [], skipped: [`day already full (${alreadyDone}/${settings.postsPerDay})`] };
+  }
+  const buildTarget = Math.min(remaining, MAX_PER_RUN);
+
+  const premises = await gatherPremises(settings.fuel);
   const used = await store.getUsedFingerprints();
-  const { picks, skipped } = pickTrends(trends, {
-    count: settings.postsPerDay,
-    usedFingerprints: used,
-    categories: settings.categories,
+
+  // Skip premises already queued today, so a second run doesn't repeat one.
+  const queuedToday = new Set(todayImages.map((r) => r.topicFingerprint));
+  const seen = new Set<string>([...used, ...queuedToday]);
+
+  // Over-fetch candidates: the writer and the two safety nets both reject, so
+  // asking for exactly the target would quietly under-fill the day.
+  const { picks, skipped } = pickPremises(premises, {
+    count: buildTarget * 4,
+    usedFingerprints: seen,
+    lanes: settings.categories,
     extraBlockedWords: settings.extraBlockedWords,
     maxAgeHours: settings.maxAgeHours,
   });
 
-  const times = scheduleTimes(settings.slotHours, settings.timezone, picks.length, settings.postingMode);
+  // Built in parallel waves. Done one at a time, a full day of posts does not
+  // fit in a 60s serverless run — each post is two Gemini calls, a photo
+  // lookup, a render and an upload. Three at a time keeps memory and CPU sane
+  // while cutting the wall-clock to roughly a third.
+  const CONCURRENCY = 3;
   const rows: PostRow[] = [];
-
-  for (let i = 0; i < picks.length; i++) {
-    const t = picks[i];
-    try {
-      const content = await writeCard(t);
-      if (!content) {
-        skipped.push(`copywriter skipped: ${t.title}`);
-        continue;
-      }
-      // Apply the dashboard voice settings.
-      content.cta = settings.voice.cta;
-      content.hashtags = [...new Set([...settings.voice.hashtagsCore, ...content.hashtags])].slice(0, 12);
-
-      const backgroundUrl = await findBackground(content.backgroundKeyword);
-      const png = await renderCardPng({
-        template: content.template,
-        category: content.category,
-        headline: content.headline,
-        stat: content.stat,
-        source: t.source,
-        backgroundUrl,
-      });
-      const id = newId();
-      const { imagePath, imageUrl } = await store.saveImage(id, png);
-      rows.push({
-        id,
-        createdAt: new Date().toISOString(),
-        scheduledFor: times[i],
-        status: "queued",
-        mediaType: "image",
-        category: content.category,
-        template: content.template,
-        headline: content.headline,
-        caption: assembleCaption(content),
-        hashtags: content.hashtags,
-        source: t.source,
-        sourceUrl: t.url,
-        topicFingerprint: fingerprint(t.title),
-        imagePath,
-        imageUrl,
-        fbId: null,
-        igId: null,
-        error: null,
-      });
-    } catch (e) {
-      skipped.push(`render/failed: ${t.title} (${(e as Error).message})`);
+  let next = 0;
+  while (rows.length < buildTarget && next < picks.length) {
+    if (Date.now() - started > TIME_BUDGET_MS) {
+      skipped.push("time budget reached; queuing what was built");
+      break;
+    }
+    const need = buildTarget - rows.length;
+    const wave = picks.slice(next, next + Math.min(need, CONCURRENCY));
+    next += wave.length;
+    const built = await Promise.all(wave.map((p) => buildImageRow(p, settings, skipped)));
+    for (const r of built) {
+      if (r && rows.length < buildTarget) rows.push(r);
     }
   }
 
+  // The day's full slot list is stable across runs (see lib/schedule.ts), so
+  // this batch simply takes the slots after the ones already handed out.
+  const times = scheduleTimes(
+    settings.slotHours,
+    settings.timezone,
+    settings.postsPerDay,
+    settings.postingMode,
+  );
+  rows.forEach((r, i) => {
+    r.scheduledFor = times[Math.min(alreadyDone + i, times.length - 1)];
+  });
+
   if (rows.length) await store.enqueue(rows);
-  return { mode, picked: picks.length, queued: rows, skipped };
+  return { mode, picked: rows.length, queued: rows, skipped };
 }
 
-/** Day bucket (YYYY-MM-DD) in a timezone, for the "one reel a day" guard. */
+/** Day bucket (YYYY-MM-DD) in a timezone, for the daily reel cap. */
 function dayKey(d: Date, tz: string): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
 }
@@ -99,19 +205,16 @@ export interface ReelSummary {
   id?: string;
 }
 
-/** Build ONE reel (stock clip + music + branded cover) and enqueue it. Called
- *  hourly by its own cron, which self-gates to the dashboard's reel hour; the
- *  workflow then triggers /api/publish to post it. Building and publishing are
- *  separate serverless calls so neither exceeds the time budget (video work is
- *  slow). `force` bypasses the hour gate and the once-a-day guard (manual runs). */
+/** Build ONE meme reel (stock clip + joke burned on + music) and enqueue it.
+ *  Called at fixed cron slots, which self-gate to the dashboard's reels-per-day
+ *  cap; the workflow then triggers /api/publish to post it. Building and
+ *  publishing stay separate serverless calls so neither exceeds the time
+ *  budget. `force` bypasses the gates for a manual run. */
 export async function runReel(force = false): Promise<ReelSummary> {
   const store = getStore();
   const settings = await getSettings();
   if (!settings.reel.enabled) return { mode: "skipped", reason: "reel disabled" };
 
-  // Timing is controlled by the reel workflow's cron (fixed daily slots), so
-  // there's no hour gate here — just a daily count cap. Each cron slot builds one
-  // reel until the day's `perDay` limit is reached.
   const now = new Date();
   const tz = settings.timezone;
   const today = dayKey(now, tz);
@@ -123,9 +226,9 @@ export async function runReel(force = false): Promise<ReelSummary> {
     return { mode: "skipped", reason: `daily reel limit reached (${todayReels.length}/${settings.reel.perDay})` };
   }
 
-  // Variable timing: the reel workflow fires at several candidate slots; post at
-  // a random subset so reel times differ day to day. The needed/remaining odds
-  // still reliably hit `perDay` by the last slot (which forces a build).
+  // Variable timing: the reel workflow fires at several candidate slots; build
+  // at a random subset so reel times differ day to day. The needed/remaining
+  // odds still reliably hit `perDay` by the last slot (which forces a build).
   if (!force && settings.postingMode === "variable") {
     const utcHour = now.getUTCHours();
     const remaining = Math.max(1, REEL_SLOT_UTC.filter((h) => h >= utcHour).length);
@@ -135,9 +238,9 @@ export async function runReel(force = false): Promise<ReelSummary> {
     }
   }
 
-  const trends = await fetchAllTrends(settings.sources);
+  const premises = await gatherPremises(settings.fuel);
   const used = await store.getUsedFingerprints();
-  const { row, reason } = await buildReelRow(settings, trends, used);
+  const { row, reason } = await buildReelRow(settings, premises, used);
   if (!row) return { mode: "skipped", reason: reason ?? "could not build a reel" };
   await store.enqueue([row]);
   return { mode: "queued", id: row.id };
@@ -157,85 +260,92 @@ async function downloadToBuffer(url: string): Promise<Buffer> {
   return Buffer.from(await res.arrayBuffer());
 }
 
-/** Build a single reel PostRow: pick a fresh topic, find a stock clip, re-host
- *  it, and render a branded cover. Tries several candidate topics so one
- *  unsafe/clip-less topic doesn't lose the day. Returns { row } on success, or
- *  { reason } explaining why nothing could be built. */
-// How viral/relatable each category tends to be as a short reel. Used only for
-// reel topic selection, so reels lean into shareable content without changing
-// the user's image-post category weights.
+// How well each lane tends to work as a short reel. Used only for reel premise
+// selection, so reels lean into the most shareable lanes without changing the
+// user's image-post weights. Disabled lanes are still respected.
 const REEL_VIRALITY: Record<string, number> = {
-  TRENDING: 5,
-  "DID YOU KNOW": 5,
-  ENTERTAINMENT: 5,
-  SPORTS: 4,
-  SPACE: 4,
-  TECH: 2,
-  WORLD: 2,
+  ANIMALS: 5,
+  RELATABLE: 5,
+  SLEEP: 4,
+  FOOD: 4,
+  WORK: 3,
+  MONEY: 3,
 };
 
-function biasCategoriesForReels(
-  categories: Record<string, CategorySetting>,
-): Record<string, CategorySetting> {
-  const out: Record<string, CategorySetting> = {};
-  for (const [cat, s] of Object.entries(categories)) {
-    out[cat] = { enabled: s.enabled, weight: REEL_VIRALITY[cat] ?? s.weight };
+function biasLanesForReels(lanes: Record<string, LaneSetting>): Record<string, LaneSetting> {
+  const out: Record<string, LaneSetting> = {};
+  for (const [lane, s] of Object.entries(lanes)) {
+    out[lane] = { enabled: s.enabled, weight: REEL_VIRALITY[lane] ?? s.weight };
   }
   return out;
 }
 
+/** Build a single reel PostRow. Tries several candidate premises so one
+ *  rejected joke or clip-less keyword doesn't lose the slot. */
 async function buildReelRow(
   settings: Settings,
-  trends: Trend[],
+  premises: Premise[],
   usedFingerprints: Set<string>,
 ): Promise<{ row?: PostRow; reason?: string }> {
   const store = getStore();
-  // Reels live or die on shareability, so bias reel topic-picking toward the
-  // most viral/relatable categories (kept separate from the user's stored image
-  // settings; disabled categories are still respected).
-  const reelCategories = biasCategoriesForReels(settings.categories);
-  const { picks } = pickTrends(trends, {
+  const { picks } = pickPremises(premises, {
     count: 8, // several candidates; we use the first that yields a clip
     usedFingerprints,
-    categories: reelCategories,
+    lanes: biasLanesForReels(settings.categories),
     extraBlockedWords: settings.extraBlockedWords,
     maxAgeHours: settings.maxAgeHours,
   });
-  if (!picks.length) return { reason: "no fresh topic passed the filter" };
+  if (!picks.length) return { reason: "no premise passed the filter" };
 
-  let sawTopic = false;
-  for (const t of picks) {
-    const content = await writeCard(t, true); // reel-tuned hook
-    if (!content) continue; // topic judged unsafe/off-brand — try the next
-    sawTopic = true;
-    content.cta = settings.voice.cta;
-    content.hashtags = [...new Set([...settings.voice.hashtagsCore, ...content.hashtags])].slice(0, 12);
+  const skipped: string[] = [];
+  let sawJoke = false;
 
-    const clip = await findStockVideo(content.backgroundKeyword);
-    if (!clip) continue; // no footage for this topic — try the next
+  for (const p of picks) {
+    const content = await safeWrite(p, settings, true, skipped);
+    if (!content) continue;
+    sawJoke = true;
+
+    const clip = await findStockVideo(content.photoKeyword);
+    if (!clip) continue; // no footage for this keyword — try the next premise
 
     const id = newId();
     const rawClip = await downloadToBuffer(clip.url);
-    // Mix in calming background music. If anything fails, fall back to the
-    // silent clip so the day's reel still goes out.
-    let finalVideo = rawClip;
+    const overlay = await renderMemeOverlayPng({
+      topText: content.topText,
+      bottomText: content.bottomText,
+      transparent: true,
+    });
+
+    // Music is a nice-to-have; a silent reel still goes out.
+    let music: Buffer | null = null;
     try {
       const musicUrl = pickMusicUrl();
-      if (musicUrl) {
-        const music = await downloadToBuffer(musicUrl);
-        finalVideo = await muxMusicOntoVideo(rawClip, music, clip.duration);
-      }
+      if (musicUrl) music = await downloadToBuffer(musicUrl);
     } catch (e) {
-      console.warn(`[reel] music mix failed, using silent clip: ${(e as Error).message}`);
-      finalVideo = rawClip;
+      console.warn(`[reel] music fetch failed, continuing silent: ${(e as Error).message}`);
     }
-    const { videoUrl } = await store.saveVideo(id, finalVideo);
-    const coverPng = await renderReelCoverPng({
-      template: content.template,
-      category: content.category,
-      headline: content.headline,
-      source: t.source,
-    });
+
+    // Burn the joke on. If ffmpeg fails entirely we cannot post a meme reel —
+    // the joke would be invisible — so fall through to the next candidate.
+    let built;
+    try {
+      built = await buildReel(rawClip, music, overlay, clip.duration);
+    } catch (e) {
+      console.warn(`[reel] build failed: ${(e as Error).message}`);
+      continue;
+    }
+
+    const { videoUrl } = await store.saveVideo(id, built.mp4);
+    // The cover is a real frame of the finished reel, so the grid thumbnail
+    // shows the actual meme. Fall back to a rendered card if that failed.
+    let coverPng = built.cover;
+    if (!coverPng?.length) {
+      coverPng = await renderReelCoverPng({
+        topText: content.topText,
+        bottomText: content.bottomText,
+        photoUrl: null,
+      });
+    }
     const { imagePath, imageUrl } = await store.saveImage(id, coverPng);
 
     return {
@@ -245,14 +355,14 @@ async function buildReelRow(
         scheduledFor: new Date().toISOString(),
         status: "queued",
         mediaType: "reel",
-        category: content.category,
-        template: content.template,
-        headline: content.headline,
+        category: content.lane,
+        template: "impact",
+        headline: flattenJoke(content),
         caption: assembleCaption(content),
         hashtags: content.hashtags,
-        source: t.source,
-        sourceUrl: t.url,
-        topicFingerprint: fingerprint(t.title),
+        source: p.source,
+        sourceUrl: p.url ?? "",
+        topicFingerprint: fingerprint(p.premise),
         imagePath,
         imageUrl,
         videoUrl,
@@ -262,7 +372,12 @@ async function buildReelRow(
       },
     };
   }
-  return { reason: sawTopic ? "topics found but no stock clip matched" : "all candidate topics were filtered out" };
+
+  return {
+    reason: sawJoke
+      ? "jokes written but no stock clip matched"
+      : `all candidate premises were filtered out (${skipped.slice(0, 2).join("; ")})`,
+  };
 }
 
 export async function runPublish(): Promise<PublishSummary> {

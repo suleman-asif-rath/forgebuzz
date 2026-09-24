@@ -14,7 +14,7 @@ export interface StockVideo {
   source: "pexels" | "pixabay";
 }
 
-const MIN_DURATION = 3;
+const MIN_DURATION = 6; // shorter than this makes a choppy reel
 const MAX_DURATION = 70;
 
 // Broad terms that reliably return footage, used if a specific keyword is dry.

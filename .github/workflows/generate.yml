@@ -1,7 +1,12 @@
-name: ForgeBuzz · Generate daily posts
+name: ForgeBuzz · Generate daily memes
 
 # Fills the day's queue each morning (09:00 Pakistan = 04:00 UTC).
 # Vercel's free cron only runs ~daily, so GitHub Actions is the timer.
+#
+# /api/generate is INCREMENTAL: each call builds at most a few memes, because a
+# full day (two Gemini calls, a photo lookup, a render and an upload per post)
+# does not fit in one 60s serverless run. So we call it until the day is full.
+# Re-running after that is a no-op, which also makes a manual run safe.
 on:
   schedule:
     - cron: "0 4 * * *"
@@ -11,9 +16,25 @@ jobs:
   generate:
     runs-on: ubuntu-latest
     steps:
-      - name: Trigger /api/generate
+      - name: Fill the day's queue
+        env:
+          URL: ${{ secrets.FORGEBUZZ_URL }}
+          SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          curl --fail-with-body --show-error --silent \
-            --retry 3 --retry-delay 10 --max-time 120 \
-            -X POST "${{ secrets.FORGEBUZZ_URL }}/api/generate" \
-            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}"
+          for i in 1 2 3 4 5; do
+            resp=$(curl --fail-with-body --show-error --silent \
+              --retry 2 --retry-delay 10 --max-time 120 \
+              -X POST "$URL/api/generate" -H "x-cron-secret: $SECRET")
+            echo "pass $i: $resp"
+
+            if echo "$resp" | grep -q 'day already full'; then
+              echo "Day is full. Done."
+              exit 0
+            fi
+            if echo "$resp" | grep -q '"picked":0'; then
+              echo "Nothing built this pass; stopping so we don't spin."
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "Reached the pass limit; the publish job will post whatever is queued."

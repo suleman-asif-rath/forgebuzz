@@ -1,22 +1,23 @@
 import brand from "@/brand/brand";
 import { config } from "./config";
 import { getStore } from "./store";
-import type { Settings, CategorySetting } from "./types";
+import type { HumorEdge, LaneSetting, Settings } from "./types";
 
 /** Factory defaults. Used until the user changes anything in the dashboard,
  *  and to backfill any field missing from a stored settings blob. */
 export function defaultSettings(): Settings {
-  const categories: Record<string, CategorySetting> = {};
-  for (const c of brand.categories) categories[c] = { enabled: true, weight: 3 };
+  const categories: Record<string, LaneSetting> = {};
+  for (const lane of brand.categories) categories[lane] = { enabled: true, weight: 3 };
   return {
     postingEnabled: true,
     postsPerDay: config.postsPerDay,
     postingMode: "variable",
     slotHours: [9, 11, 13, 15, 17, 19, 21],
     timezone: "Asia/Karachi",
-    maxAgeHours: 18,
+    maxAgeHours: 48,
+    humorEdge: "pg13",
     categories,
-    sources: { reddit: true, rss: true, hackernews: true, googlenews: true },
+    fuel: { seeds: true, reddit: true },
     voice: {
       cta: brand.caption.cta,
       hashtagsCore: [...brand.caption.hashtagsCore],
@@ -26,19 +27,42 @@ export function defaultSettings(): Settings {
   };
 }
 
-/** Merge stored settings over defaults so new fields always have a value. */
+const EDGES: HumorEdge[] = ["clean", "pg13", "sharp"];
+
+/** Merge stored settings over defaults so new fields always have a value.
+ *
+ *  Note on `categories`: the stored blob may still hold the old news
+ *  categories (TRENDING, SPACE, ...). Only the current humor lanes are kept,
+ *  so a leftover news category can never be picked after the meme pivot. */
 function merge(stored: Partial<Settings> | null): Settings {
   const d = defaultSettings();
   if (!stored) return d;
+
+  const categories: Record<string, LaneSetting> = {};
+  for (const lane of brand.categories) {
+    const s = stored.categories?.[lane];
+    categories[lane] = {
+      enabled: s?.enabled ?? d.categories[lane].enabled,
+      weight: clampInt(s?.weight ?? d.categories[lane].weight, 1, 5),
+    };
+  }
+
   return {
     postingEnabled: stored.postingEnabled ?? d.postingEnabled,
     postsPerDay: clampInt(stored.postsPerDay ?? d.postsPerDay, 1, 12),
-    postingMode: stored.postingMode === "fixed" || stored.postingMode === "variable" ? stored.postingMode : d.postingMode,
+    postingMode:
+      stored.postingMode === "fixed" || stored.postingMode === "variable"
+        ? stored.postingMode
+        : d.postingMode,
     slotHours: Array.isArray(stored.slotHours) && stored.slotHours.length ? stored.slotHours : d.slotHours,
     timezone: stored.timezone || d.timezone,
-    maxAgeHours: clampInt(stored.maxAgeHours ?? d.maxAgeHours, 3, 72),
-    categories: { ...d.categories, ...(stored.categories ?? {}) },
-    sources: { ...d.sources, ...(stored.sources ?? {}) },
+    maxAgeHours: clampInt(stored.maxAgeHours ?? d.maxAgeHours, 6, 168),
+    humorEdge: EDGES.includes(stored.humorEdge as HumorEdge) ? (stored.humorEdge as HumorEdge) : d.humorEdge,
+    categories,
+    fuel: {
+      seeds: stored.fuel?.seeds ?? d.fuel.seeds,
+      reddit: stored.fuel?.reddit ?? d.fuel.reddit,
+    },
     voice: {
       cta: stored.voice?.cta || d.voice.cta,
       hashtagsCore: stored.voice?.hashtagsCore?.length ? stored.voice.hashtagsCore : d.voice.hashtagsCore,

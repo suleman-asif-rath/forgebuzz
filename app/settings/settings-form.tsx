@@ -122,20 +122,10 @@ export default function SettingsForm({ initial }: { initial: Settings }) {
           <span className="sub">IANA name, e.g. Asia/Karachi, Europe/London, America/New_York.</span>
         </div>
 
-        <div className="field">
-          <label>News freshness (max age, hours)</label>
-          <input type="number" min={3} max={72} value={s.maxAgeHours}
-            onChange={(e) => set("maxAgeHours", Math.max(3, Math.min(72, Number(e.target.value) || 18)))} />
-          <span className="sub">
-            News-like posts must have happened within this many hours (12 to 18 recommended).
-            Timeless "Did You Know" facts are exempt.
-          </span>
-        </div>
-
         <div className="togglerow" style={{ marginTop: 16 }}>
           <div>
             <div className="t-lbl">Reels</div>
-            <div className="t-sub">Post short video reels (a stock clip with calming music and your branded cover) to Instagram &amp; Facebook, spread across the day. Reels reach far more people than image posts.</div>
+            <div className="t-sub">Post short video reels (a stock clip with the joke burned on and music underneath) to Instagram &amp; Facebook, spread across the day. Reels reach far more people than image posts.</div>
           </div>
           <label className="switch">
             <input type="checkbox" checked={s.reel.enabled}
@@ -160,10 +150,10 @@ export default function SettingsForm({ initial }: { initial: Settings }) {
         ) : null}
       </div>
 
-      {/* Areas of interest */}
+      {/* Humor lanes */}
       <div className="section">
-        <h2>Areas of interest</h2>
-        <div className="hint">Turn topic areas on or off, and set how often each appears.</div>
+        <h2>Humor lanes</h2>
+        <div className="hint">Turn each kind of joke on or off, and set how often it shows up.</div>
         {Object.keys(s.categories).map((cat) => {
           const c = s.categories[cat];
           return (
@@ -183,25 +173,69 @@ export default function SettingsForm({ initial }: { initial: Settings }) {
         })}
       </div>
 
-      {/* Sources */}
+      {/* Meme fuel */}
       <div className="section">
-        <h2>Trend sources</h2>
-        <div className="hint">Where topics are pulled from.</div>
+        <h2>Meme fuel</h2>
+        <div className="hint">
+          Where joke ideas come from. Every meme is written from scratch — nobody else&apos;s
+          image is ever downloaded, re-hosted, or posted.
+        </div>
         {([
-          ["googlenews", "Google News", "Fresh world, tech, entertainment & sports headlines"],
-          ["reddit", "Reddit", "Popular posts from safe subreddits"],
-          ["rss", "News RSS", "Space.com, ScienceDaily, The Verge"],
-          ["hackernews", "Hacker News", "Trending tech stories"],
+          ["seeds", "Built-in seed bank", "200+ hand-written premises. Never fails, never rate-limits — leave this on."],
+          ["reddit", "Reddit sparks", "Titles only, from subs where the title carries the idea. Keeps the page current."],
         ] as const).map(([key, label, sub]) => (
           <div className="togglerow" key={key}>
             <div><div className="t-lbl">{label}</div><div className="t-sub">{sub}</div></div>
             <label className="switch">
-              <input type="checkbox" checked={s.sources[key]}
-                onChange={(e) => set("sources", { ...s.sources, [key]: e.target.checked })} />
+              <input type="checkbox" checked={s.fuel[key]}
+                onChange={(e) => set("fuel", { ...s.fuel, [key]: e.target.checked })} />
               <span className="track" />
             </label>
           </div>
         ))}
+
+        {s.fuel.reddit ? (
+          <div className="field" style={{ marginTop: 12 }}>
+            <label>Reddit spark freshness (max age, hours)</label>
+            <input type="number" min={6} max={168} value={s.maxAgeHours}
+              onChange={(e) => set("maxAgeHours", Math.max(6, Math.min(168, Number(e.target.value) || 48)))} />
+            <span className="sub">
+              Ignore Reddit sparks older than this (48 is a good default). The seed bank is
+              timeless and always exempt.
+            </span>
+          </div>
+        ) : null}
+      </div>
+
+      {/* Humor edge */}
+      <div className="section">
+        <h2>Humor edge</h2>
+        <div className="hint">
+          How sharp the jokes are allowed to get. The hard lines — slurs, politics, religion,
+          tragedy, sexual content, anything punching down — are blocked at every level and
+          cannot be turned off.
+        </div>
+        <div className="field">
+          <div className="chips">
+            {([
+              ["clean", "Clean"],
+              ["pg13", "PG-13"],
+              ["sharp", "Sharp"],
+            ] as const).map(([val, label]) => (
+              <span key={val} className={`chip ${s.humorEdge === val ? "on" : ""}`}
+                onClick={() => set("humorEdge", val)}>
+                {label}
+              </span>
+            ))}
+          </div>
+          <span className="sub">
+            {s.humorEdge === "clean"
+              ? "No swearing at all, warm and playful. Safe to show anyone."
+              : s.humorEdge === "sharp"
+              ? "Chronically-online and exaggerated, heavy internet slang, mild swearing only (damn, hell). Strong profanity is always blocked."
+              : "Relatable and internet-native, mild swearing only (damn, hell). Grown-up life humour is fine. Recommended."}
+          </span>
+        </div>
       </div>
 
       {/* Voice */}
@@ -223,14 +257,14 @@ export default function SettingsForm({ initial }: { initial: Settings }) {
       <div className="section">
         <h2>Safety net</h2>
         <div className="hint">
-          A built-in list already blocks political, tragic, and adult topics. Add any extra words
+          A built-in list already blocks hateful, political, tragic, and adult content. Add any extra words
           you never want to post about.
         </div>
         <div className="field">
           <label>Extra blocked words</label>
           <textarea value={blockedText} onChange={(e) => { setBlockedText(e.target.value); setSaved(false); }}
             placeholder="e.g. gambling, casino, lawsuit" />
-          <span className="sub">Comma or line separated. Any topic containing these is dropped.</span>
+          <span className="sub">Comma or line separated. Any premise or finished joke containing these is dropped.</span>
         </div>
       </div>
 

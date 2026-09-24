@@ -32,3 +32,6 @@ next-env.d.ts
 
 # local dev server log
 .devserver.log
+
+# content-rule check build output
+/.checktmp/

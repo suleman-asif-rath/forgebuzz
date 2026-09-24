@@ -25,7 +25,7 @@ export async function GET(req: Request) {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          backgroundImage: "linear-gradient(135deg, #3E86FF 0%, #63C6F5 100%)",
+          backgroundImage: "linear-gradient(135deg, #FF3D71 0%, #FFA63D 100%)",
         }}
       >
         <img src={URI} width={mark} height={mark} style={{ width: mark, height: mark }} />

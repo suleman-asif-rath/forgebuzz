@@ -17,8 +17,8 @@ export default function Nav() {
         <svg className="logo" viewBox="0 0 120 120" aria-label="ForgeBuzz">
           <defs>
             <linearGradient id="navg" x1="0" y1="1" x2="1" y2="0">
-              <stop offset="0" stopColor="#3E86FF" />
-              <stop offset="1" stopColor="#63C6F5" />
+              <stop offset="0" stopColor="#FF3D71" />
+              <stop offset="1" stopColor="#FFA63D" />
             </linearGradient>
           </defs>
           <rect x="8" y="8" width="104" height="104" rx="27" fill="url(#navg)" />
