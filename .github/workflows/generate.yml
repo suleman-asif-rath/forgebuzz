@@ -7,9 +7,17 @@ name: ForgeBuzz · Generate daily memes
 # full day (two Gemini calls, a photo lookup, a render and an upload per post)
 # does not fit in one 60s serverless run. So we call it until the day is full.
 # Re-running after that is a no-op, which also makes a manual run safe.
+#
+# Two schedules, not one. The Gemini free tier resets its daily quota on
+# Google's cycle (midnight Pacific, roughly 07:00-08:00 UTC), which is AFTER
+# the 04:00 run — so if yesterday's quota was spent, the morning run writes
+# nothing and the day stays empty. The 08:00 top-up lands just after the reset
+# and fills whatever is missing. Because generation is idempotent (it stops at
+# "day already full"), a day that filled at 04:00 makes the second run a no-op.
 on:
   schedule:
     - cron: "0 4 * * *"
+    - cron: "0 8 * * *"
   workflow_dispatch: {} # allow manual runs from the Actions tab
 
 jobs:
