@@ -1,5 +1,6 @@
 import brand from "@/brand/brand";
 import { generateJson } from "./gemini";
+import { FACT_LANE } from "./types";
 import type { HumorEdge, MemeContent, Premise } from "./types";
 import { clampHeadline } from "./util";
 
@@ -18,6 +19,7 @@ const STOP = new Set([
 ]);
 
 function topicalHashtags(premise: string, lane: string): string[] {
+  const isFact = lane === FACT_LANE;
   const words = premise
     .toLowerCase()
     .replace(/[^a-z0-9 ]+/g, " ")
@@ -25,7 +27,11 @@ function topicalHashtags(premise: string, lane: string): string[] {
     .filter((w) => w.length > 4 && !STOP.has(w));
   const laneTag = "#" + lane.toLowerCase().replace(/[^a-z0-9]+/g, "");
   const topical = words.slice(0, 5).map((w) => "#" + w);
-  const all = [...brand.caption.hashtagsCore, laneTag, "#funny", "#memepage", ...topical];
+  // A fact post tagged #memes reads as a joke and undercuts the claim.
+  const flavour = isFact
+    ? ["#didyouknow", "#interesting", "#factsdaily"]
+    : ["#funny", "#memepage"];
+  const all = [...brand.caption.hashtagsCore, laneTag, ...flavour, ...topical];
   return [...new Set(all)].slice(0, brand.caption.hashtagsBySize);
 }
 
@@ -125,12 +131,65 @@ function cleanLine(s: unknown, max = MAX_LINE): string {
   return clampHeadline(t, max).toUpperCase();
 }
 
+/** The FACTS lane prompt.
+ *
+ *  The single most important rule in this file: the model is handed a fact that
+ *  is ALREADY VERIFIED (from lib/facts.ts, or a sourced subreddit) and may only
+ *  rephrase it. It must never introduce a number, place, date or claim of its
+ *  own, because an invented-but-believable fact posted unattended under the
+ *  brand's name is the one failure this lane cannot afford.
+ *
+ *  Temperature is held low for the same reason — see writePost. */
+function buildFactPrompt(p: Premise, forReel: boolean): string {
+  const format = forReel
+    ? `This is the on-screen text of a short video, so it is the first thing a viewer reads.`
+    : `This is a single image post: bold text over a photo.`;
+  return [
+    `You write scroll-stopping fact hooks for "ForgeBuzz" (@forgee.buzz).`,
+    format,
+    ``,
+    `VERIFIED FACT: "${p.premise}"`,
+    ``,
+    `Rewrite this fact as a hook in the style of:`,
+    `  "JAPAN IS TURNING FOOTSTEPS INTO ELECTRICITY"`,
+    `  "THERE IS A FOREST IN UTAH THAT IS ONE SINGLE TREE"`,
+    `Short, present tense, declarative, and surprising. No punchline, no joke.`,
+    ``,
+    `CRITICAL ACCURACY RULES:`,
+    `- Use ONLY what the fact above says. Do NOT add numbers, places, dates,`,
+    `  names, causes or consequences that are not in it.`,
+    `- Do NOT exaggerate or round figures to sound more impressive.`,
+    `- If you cannot write an accurate hook from this fact alone, or the fact`,
+    `  seems doubtful, return {"skip": true}. Skipping is always acceptable.`,
+    ``,
+    `FORMAT RULES:`,
+    `- Each line MAX ${MAX_LINE} characters. No hashtags, emoji or quote marks.`,
+    `- Split across topText and bottomText where it reads naturally, or put the`,
+    `  whole hook in topText and leave bottomText empty.`,
+    ``,
+    `Return ONLY compact JSON:`,
+    `{`,
+    `  "topText": string,       // the hook, or its first half. UPPERCASE.`,
+    `  "bottomText": string,    // the rest, or "". UPPERCASE.`,
+    `  "lane": "FACTS",`,
+    `  "captionLine": string,   // ONE line of the real detail, drawn from the fact`,
+    `  "hashtags": string[],    // exactly 12, starting #forgebuzz #facts #didyouknow`,
+    `  "photoKeyword": string   // 1-3 literal words for a stock photo`,
+    `}`,
+  ].join("\n");
+}
+
 async function geminiWrite(
   p: Premise,
   edge: HumorEdge,
   forReel: boolean,
 ): Promise<MemeContent | null> {
-  const parsed = await generateJson(buildPrompt(p, edge, forReel), 1.0);
+  const isFact = p.lane === FACT_LANE;
+  // Facts get a near-deterministic temperature: creativity is exactly what
+  // causes a model to embellish a claim. Jokes need the opposite.
+  const parsed = isFact
+    ? await generateJson(buildFactPrompt(p, forReel), 0.3)
+    : await generateJson(buildPrompt(p, edge, forReel), 1.0);
   if (parsed.skip) return null; // the model judged it unusable
 
   const local = localDefaults(p);

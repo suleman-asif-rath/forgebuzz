@@ -150,10 +150,16 @@ export default function SettingsForm({ initial }: { initial: Settings }) {
         ) : null}
       </div>
 
-      {/* Humor lanes */}
+      {/* Content lanes */}
       <div className="section">
-        <h2>Humor lanes</h2>
-        <div className="hint">Turn each kind of joke on or off, and set how often it shows up.</div>
+        <h2>Content lanes</h2>
+        <div className="hint">
+          Turn each kind of post on or off, and set how often it shows up.
+          <br />
+          <b>FACTS</b> is the odd one out: instead of a joke it posts a verified
+          &ldquo;wow&rdquo; fact as a hook (&ldquo;Japan is turning footsteps into
+          electricity&rdquo;). Facts are never invented — see Meme fuel below.
+        </div>
         {Object.keys(s.categories).map((cat) => {
           const c = s.categories[cat];
           return (
@@ -175,14 +181,15 @@ export default function SettingsForm({ initial }: { initial: Settings }) {
 
       {/* Meme fuel */}
       <div className="section">
-        <h2>Meme fuel</h2>
+        <h2>Content sources</h2>
         <div className="hint">
-          Where joke ideas come from. Every meme is written from scratch — nobody else&apos;s
+          Where ideas come from. Every post is written from scratch — nobody else&apos;s
           image is ever downloaded, re-hosted, or posted.
         </div>
         {([
-          ["seeds", "Built-in seed bank", "200+ hand-written premises. Never fails, never rate-limits — leave this on."],
-          ["reddit", "Reddit sparks", "Titles only, from subs where the title carries the idea. Keeps the page current."],
+          ["seeds", "Joke seed bank", "210 hand-written premises for the humour lanes. Never fails, never rate-limits — leave this on."],
+          ["reddit", "Reddit joke sparks", "Titles only, from humour and animal subs. Keeps the jokes current."],
+          ["facts", "Verified fact bank + sources", "Powers the FACTS lane: 130+ hand-checked facts, plus r/todayilearned and r/Damnthatsinteresting (which require sources). The AI only rephrases a fact it is given — it never writes one itself."],
         ] as const).map(([key, label, sub]) => (
           <div className="togglerow" key={key}>
             <div><div className="t-lbl">{label}</div><div className="t-sub">{sub}</div></div>

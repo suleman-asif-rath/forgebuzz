@@ -263,6 +263,7 @@ async function downloadToBuffer(url: string): Promise<Buffer> {
 // selection, so reels lean into the most shareable lanes without changing the
 // user's image-post weights. Disabled lanes are still respected.
 const REEL_VIRALITY: Record<string, number> = {
+  FACTS: 5, // fact hooks are the strongest reel format on IG right now
   ANIMALS: 5,
   RELATABLE: 5,
   SLEEP: 4,

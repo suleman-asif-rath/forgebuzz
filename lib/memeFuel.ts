@@ -7,6 +7,7 @@
 // This replaced lib/trends.ts when the page moved from news to memes. There is
 // deliberately no Google News / RSS / Hacker News here any more.
 
+import { FACT_LANE } from "./types";
 import type { Premise } from "./types";
 
 const UA = "forgebuzz-bot/2.0 (original meme generator)";
@@ -42,6 +43,37 @@ const SUBS: { sub: string; lane: string; photo: string }[] = [
   { sub: "cats", lane: "ANIMALS", photo: "cat at home" },
   { sub: "rarepuppers", lane: "ANIMALS", photo: "happy dog" },
 ];
+
+// Fact sources for the FACTS lane. These subs are chosen because a post there
+// is REQUIRED to cite a source, so the claim has already been checked by
+// someone before we see it — the writer then only rephrases it. Toggled
+// separately from the joke sparks (Settings -> fuel.facts).
+const FACT_SUBS: { sub: string; photo: string }[] = [
+  { sub: "todayilearned", photo: "interesting object" },
+  { sub: "Damnthatsinteresting", photo: "interesting scene" },
+];
+
+// TIL titles are all prefixed and often trail into editorialising after a dash.
+function cleanFactTitle(title: string): string {
+  return title
+    .replace(/^til:?\s*(that\s+)?/i, "")
+    .replace(/\s+\[[^\]]*\]\s*$/, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** A fact title only qualifies if it reads as a self-contained claim. Anything
+ *  hedged ("apparently", "allegedly") is dropped: the whole point of this lane
+ *  is that the fact is solid before Gemini ever sees it. */
+const HEDGED = /\b(apparently|allegedly|reportedly|supposedly|rumou?r|might have|may have|some say|believed to)\b/i;
+
+function usableFact(fact: string): boolean {
+  if (fact.length < 30 || fact.length > 220) return false;
+  if (HEDGED.test(fact)) return false;
+  if (/https?:\/\//i.test(fact)) return false;
+  if (/\?\s*$/.test(fact)) return false; // a question is not a fact
+  return fact.split(/\s+/).filter((w) => w.length > 2).length >= 6;
+}
 
 // Titles that carry no usable idea. Reddit is a top-up, so we drop aggressively
 // rather than hand the writer something it cannot build a joke from.
@@ -97,5 +129,41 @@ async function fetchSub({ sub, lane, photo }: (typeof SUBS)[number]): Promise<Pr
  *  fatal — and if every one fails, the seed bank alone still fills the day. */
 export async function fetchRedditFuel(): Promise<Premise[]> {
   const batches = await Promise.all(SUBS.map(fetchSub));
+  return normalize(batches.flat());
+}
+
+/** Sourced facts from Reddit for the FACTS lane, titles only. Same failure
+ *  policy: if these are unreachable, lib/facts.ts alone still carries the lane. */
+export async function fetchFactFuel(): Promise<Premise[]> {
+  const batches = await Promise.all(
+    FACT_SUBS.map(async ({ sub, photo }) => {
+      try {
+        const j = await getJson(`https://www.reddit.com/r/${sub}/top.json?t=week&limit=25`);
+        const children = j?.data?.children ?? [];
+        const out: Premise[] = [];
+        for (const c of children) {
+          const d = c?.data;
+          if (!d || d.over_18 || d.stickied || d.pinned) continue;
+          const fact = cleanFactTitle(String(d.title ?? ""));
+          if (!usableFact(fact)) continue;
+          out.push({
+            premise: fact,
+            lane: FACT_LANE,
+            photo,
+            source: `reddit r/${sub}`,
+            url: `https://reddit.com${d.permalink}`,
+            score: Number(d.ups ?? 0),
+            publishedAt: d.created_utc ? new Date(Number(d.created_utc) * 1000).toISOString() : undefined,
+            // A fact does not go stale, so it is not held to the recency limit.
+            evergreen: true,
+          });
+        }
+        return out;
+      } catch (e) {
+        console.warn(`[memeFuel] fact sub r/${sub} failed:`, (e as Error).message);
+        return [];
+      }
+    }),
+  );
   return normalize(batches.flat());
 }

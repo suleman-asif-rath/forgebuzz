@@ -7,14 +7,28 @@ export type MemeFormat = "impact";
 
 /** The humor lanes. Mirrors brand.categories — the pipeline reads the brand
  *  list, this type exists so lane strings are checkable at the edges. */
-export const MEME_LANES = ["RELATABLE", "WORK", "SLEEP", "FOOD", "MONEY", "ANIMALS"] as const;
+export const MEME_LANES = [
+  "RELATABLE",
+  "WORK",
+  "SLEEP",
+  "FOOD",
+  "MONEY",
+  "ANIMALS",
+  "FACTS",
+] as const;
 export type MemeLane = (typeof MEME_LANES)[number];
+
+/** The lane whose posts are verified facts rather than jokes. */
+export const FACT_LANE = "FACTS";
 
 /** A joke premise waiting to be written up. Comes either from the built-in seed
  *  bank (lib/premises.ts) or from Reddit titles used purely as inspiration
  *  (lib/memeFuel.ts) — we never fetch, store, or post anyone else's image. */
 export interface Premise {
-  premise: string; // the situation the joke is about
+  /** For a joke lane: the situation the joke is about.
+   *  For the FACTS lane: the VERIFIED fact itself. The writer may only
+   *  rephrase this, never add to it — see buildFactPrompt in jokewriter.ts. */
+  premise: string;
   lane: string; // humor lane, e.g. "SLEEP"
   photo: string; // hint for the stock photo the joke sits on
   source: string; // "seed bank" or "reddit r/Showerthoughts"
@@ -99,7 +113,9 @@ export interface Settings {
   maxAgeHours: number; // Reddit fuel older than this is ignored (seeds are exempt)
   humorEdge: HumorEdge;
   categories: Record<string, LaneSetting>; // keyed by humor lane
-  fuel: { seeds: boolean; reddit: boolean }; // where joke premises come from
+  // where content comes from. seeds/reddit feed the joke lanes; facts feeds
+  // the FACTS lane (its own bank plus sourced fact subreddits).
+  fuel: { seeds: boolean; reddit: boolean; facts: boolean };
   voice: { cta: string; hashtagsCore: string[] };
   extraBlockedWords: string[]; // added to the built-in safety net
   reel: { enabled: boolean; perDay: number }; // up to N short reels/day (1..3)

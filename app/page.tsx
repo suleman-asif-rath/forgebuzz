@@ -18,6 +18,18 @@ export default async function Page() {
   for (const p of posts) counts[p.status]++;
   const recent = posts.slice(0, 6);
 
+  // What the page is actually putting out: the jokes/facts split and how many
+  // are reels, so the content mix is visible without opening the queue.
+  const mix = { facts: 0, memes: 0, reels: 0 };
+  for (const p of posts) {
+    if (p.category === "FACTS") mix.facts++;
+    else mix.memes++;
+    if (p.mediaType === "reel") mix.reels++;
+  }
+  const lanes = Object.entries(settings.categories)
+    .filter(([, c]) => c.enabled)
+    .map(([lane]) => lane);
+
   return (
     <main className="wrap">
       <Nav />
@@ -35,7 +47,25 @@ export default async function Page() {
         <div className="status"><div className="k">In queue</div><div className="v">{counts.queued}</div></div>
         <div className="status"><div className="k">Posted</div><div className="v">{counts.posted}</div></div>
         <div className="status"><div className="k">Failed</div><div className="v">{counts.failed}</div></div>
-        <div className="status"><div className="k">Posts / day</div><div className="v">{settings.postsPerDay}</div></div>
+        <div className="status"><div className="k">Posts / day</div><div className="v">{settings.postsPerDay}{settings.reel.enabled ? ` + ${settings.reel.perDay} reels` : ""}</div></div>
+      </div>
+
+      <div className="statusgrid">
+        <div className="status"><div className="k">Memes</div><div className="v">{mix.memes}</div></div>
+        <div className="status"><div className="k">Facts</div><div className="v">{mix.facts}</div></div>
+        <div className="status"><div className="k">Reels</div><div className="v">{mix.reels}</div></div>
+        <div className="status"><div className="k">Humor edge</div><div className="v">{settings.humorEdge === "pg13" ? "PG-13" : settings.humorEdge === "clean" ? "Clean" : "Sharp"}</div></div>
+      </div>
+
+      <div className="statusgrid">
+        <div className="status" style={{ gridColumn: "1 / -1" }}>
+          <div className="k">Active lanes</div>
+          <div className="v" style={{ fontSize: "0.9rem", lineHeight: 1.7 }}>
+            {lanes.length ? lanes.map((l) => (
+              <span key={l} className={`pill ${l === "FACTS" ? "reel" : ""}`} style={{ marginRight: 8 }}>{l}</span>
+            )) : "none — nothing will be generated"}
+          </div>
+        </div>
       </div>
 
       {dry ? (

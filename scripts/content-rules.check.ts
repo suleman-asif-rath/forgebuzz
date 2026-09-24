@@ -12,13 +12,14 @@
 
 import { pickPremises } from "../lib/ideas";
 import { SEEDS } from "../lib/premises";
+import { FACTS } from "../lib/facts";
 import { isBlocked, isUnsafeOutput } from "../lib/blocklist";
 import { fingerprint } from "../lib/util";
 import { scheduleTimes, assignPostTimes } from "../lib/schedule";
 import { publishOutcome, PARTIAL_RETRY_WINDOW_MS } from "../lib/publishPolicy";
 import type { LaneSetting, Premise } from "../lib/types";
 
-const LANES = ["RELATABLE", "WORK", "SLEEP", "FOOD", "MONEY", "ANIMALS"];
+const LANES = ["RELATABLE", "WORK", "SLEEP", "FOOD", "MONEY", "ANIMALS", "FACTS"];
 
 let passed = 0;
 let failed = 0;
@@ -163,6 +164,33 @@ check(
   "an incremental batch takes the slots after the earlier one",
   secondBatch[0].scheduledFor === future[3] && secondBatch[1].scheduledFor === future[4],
 );
+
+console.log(`\nFact bank (${FACTS.length} facts)`);
+const factFps = FACTS.map((f) => fingerprint(f.fact));
+check(
+  "no duplicate facts",
+  new Set(factFps).size === factFps.length,
+  `${new Set(factFps).size}/${factFps.length} unique`,
+);
+check("every fact has a photo hint", FACTS.every((f) => f.photo.length > 2));
+const unsafeFacts = FACTS.filter((f) => isBlocked(f.fact, [], false));
+check(
+  "no fact trips the hard blocklist",
+  unsafeFacts.length === 0,
+  unsafeFacts.slice(0, 3).map((f) => f.fact.slice(0, 50)).join(" | "),
+);
+// A hook has to fit on a card. Facts far over this get squeezed to unreadable.
+const tooLong = FACTS.filter((f) => f.fact.length > 160);
+check(
+  "facts are short enough to become a hook",
+  tooLong.length === 0,
+  `${tooLong.length} over 160 chars`,
+);
+// The fact bank is the FACTS lane's supply; it must actually be a known lane.
+check("FACTS is a real lane", LANES.includes("FACTS"));
+// Hedged claims are exactly what this lane must not publish.
+const hedged = FACTS.filter((f) => /\b(apparently|allegedly|reportedly|supposedly|some say)\b/i.test(f.fact));
+check("no hedged or rumoured claims in the bank", hedged.length === 0, `${hedged.length} hedged`);
 
 console.log("\nPublishing to both platforms");
 const nowMs = Date.now();

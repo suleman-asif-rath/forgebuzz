@@ -1,13 +1,23 @@
 # ForgeBuzz
 
-Automated Instagram + Facebook **meme page** for **@forgee.buzz**. It writes
-original memes about everyday life and animals, renders them as impact text over
-a stock photo, and posts 6 times a day plus up to 3 reels, hands-off. Built on
+Automated Instagram + Facebook page for **@forgee.buzz**. It posts two kinds of
+content, both as bold text over a stock photo, hands-off:
+
+- **Memes** — original jokes about everyday life and animals
+- **Facts** — verified "wow" facts written as hooks
+  ("Japan is turning footsteps into electricity") Built on
 Next.js + Vercel, scheduled by GitHub Actions, at $0 on free tiers.
 
-Every meme is **original**. ForgeBuzz never downloads, re-hosts, or reposts
-anyone else's meme image — so there is no copyright or credit exposure on the
+Every post is **original**. ForgeBuzz never downloads, re-hosts, or reposts
+anyone else's image — so there is no copyright or credit exposure on the
 brand's accounts.
+
+**Facts are never invented.** The FACTS lane only ever rephrases a fact that was
+already verified before the AI saw it: either one of the hand-checked entries in
+`lib/facts.ts`, or a post from a subreddit that requires sources. The writer is
+explicitly forbidden from adding a number, place, date or claim of its own, and
+returns `skip` if it cannot write the hook from the given fact alone. This is
+the one rule that matters most on an unattended account.
 
 ---
 
@@ -130,10 +140,11 @@ the pipeline on its **next run**, so there is nothing to redeploy.
 - **Settings**
   - **Posting & frequency**: master pause switch, posts per day, fixed vs
     variable posting times, the time slots, your timezone, and reels per day.
-  - **Humor lanes**: turn each kind of joke on or off and set how often it
-    appears — RELATABLE, WORK, SLEEP, FOOD, MONEY, ANIMALS.
-  - **Meme fuel**: the built-in seed bank (always available) and Reddit sparks
-    (titles only), with a freshness limit for the Reddit side.
+  - **Content lanes**: turn each kind of post on or off and set how often it
+    appears — RELATABLE, WORK, SLEEP, FOOD, MONEY, ANIMALS and FACTS.
+  - **Content sources**: the joke seed bank, Reddit joke sparks (titles only),
+    and the verified fact bank + sourced fact subreddits — each toggled
+    separately, with a freshness limit for the Reddit side.
   - **Humor edge**: Clean / PG-13 / Sharp. Moves the profanity and sarcasm dial
     only — the hard lines are blocked at every level and cannot be turned off.
   - **Voice**: your caption call-to-action and the core hashtags on every post.
@@ -190,10 +201,13 @@ app/
   api/publish/    Post due items
   api/render/     Live meme preview
 lib/
-  premises.ts     The seed bank — 200+ joke premises (plain data)
+  premises.ts     The joke seed bank — 210 premises (plain data)
+  facts.ts        The verified fact bank — 148 hand-checked facts
   memeFuel.ts     Reddit titles as extra sparks (never their images)
   ideas.ts        Safety filter + de-dupe + weighted lane pick
-  jokewriter.ts   Gemini joke writer (+ local fallback) + caption assembly
+  jokewriter.ts   Gemini writer: jokes, plus a strict fact mode that may only
+                  rephrase a supplied fact, never author one
+  publishPolicy.ts  When a post counts as finished (both platforms, or retry)
   reviewer.ts     Second pass: "would this embarrass the brand?"
   blocklist.ts    Safety word lists (the hands-off guardrail)
   render.tsx      The meme renderer (impact text, outline, watermark)

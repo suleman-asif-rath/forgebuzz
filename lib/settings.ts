@@ -17,7 +17,7 @@ export function defaultSettings(): Settings {
     maxAgeHours: 48,
     humorEdge: "pg13",
     categories,
-    fuel: { seeds: true, reddit: true },
+    fuel: { seeds: true, reddit: true, facts: true },
     voice: {
       cta: brand.caption.cta,
       hashtagsCore: [...brand.caption.hashtagsCore],
@@ -62,6 +62,7 @@ function merge(stored: Partial<Settings> | null): Settings {
     fuel: {
       seeds: stored.fuel?.seeds ?? d.fuel.seeds,
       reddit: stored.fuel?.reddit ?? d.fuel.reddit,
+      facts: stored.fuel?.facts ?? d.fuel.facts,
     },
     voice: {
       cta: stored.voice?.cta || d.voice.cta,

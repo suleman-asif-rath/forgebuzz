@@ -79,8 +79,12 @@ export const brand = {
     watermark: "bottom-right", // @forgee.buzz, small and unobtrusive
   },
 
-  /** Humor lanes (drives topic mix + the dashboard sliders) ------------
-   *  These replaced the old news categories when the page became a meme page. */
+  /** Content lanes (drives the mix + the dashboard sliders) --------------
+   *  Six humour lanes plus FACTS. FACTS is the odd one out: it is not a joke
+   *  lane, it carries verified "wow" facts written as scroll-stopping hooks
+   *  ("Japan is turning footsteps into electricity"). It reads differently on
+   *  purpose, and has its own writer prompt and its own source of truth
+   *  (lib/facts.ts) — see FACT_LANE below. */
   categories: [
     "RELATABLE",
     "WORK",
@@ -88,7 +92,12 @@ export const brand = {
     "FOOD",
     "MONEY",
     "ANIMALS",
+    "FACTS",
   ] as const,
+
+  /** The one lane that is facts rather than jokes. Referenced by the writer,
+   *  the picker and the dashboard so the name is never hard-coded twice. */
+  factLane: "FACTS",
 
   /** Caption + hashtag style ----------------------------------------- */
   caption: {

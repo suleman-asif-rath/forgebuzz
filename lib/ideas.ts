@@ -6,13 +6,16 @@
 
 import type { LaneSetting, Premise } from "./types";
 import { SEEDS } from "./premises";
-import { fetchRedditFuel } from "./memeFuel";
+import { fetchRedditFuel, fetchFactFuel } from "./memeFuel";
+import { FACTS } from "./facts";
+import { FACT_LANE } from "./types";
 import { isBlocked } from "./blocklist";
 import { fingerprint } from "./util";
 
 export interface FuelToggles {
   seeds: boolean;
   reddit: boolean;
+  facts: boolean;
 }
 
 /** The built-in seed bank as premises. Evergreen, so always eligible.
@@ -28,17 +31,34 @@ function seedPremises(): Premise[] {
   }));
 }
 
-/** Gather every enabled fuel source. The seed bank never fails, so the day's
- *  posts survive Reddit being down, rate-limited, or entirely filtered out. */
+/** The verified fact bank as premises. Evergreen — a fact does not expire. */
+function factPremises(): Premise[] {
+  return FACTS.map((f) => ({
+    premise: f.fact,
+    lane: FACT_LANE,
+    photo: f.photo,
+    source: "fact bank",
+    score: Math.floor(Math.random() * 100),
+    evergreen: true,
+  }));
+}
+
+/** Gather every enabled fuel source. Both banks are local and never fail, so
+ *  the day's posts survive Reddit being down, rate-limited, or fully filtered. */
 export async function gatherPremises(fuel: FuelToggles): Promise<Premise[]> {
   const seeds = fuel.seeds ? seedPremises() : [];
-  const reddit = fuel.reddit ? await fetchRedditFuel().catch(() => []) : [];
-  if (!seeds.length && !reddit.length) {
-    // Both sources off or dead — fall back to the seed bank regardless, rather
-    // than post nothing at all.
-    return seedPremises();
+  const facts = fuel.facts ? factPremises() : [];
+  const [reddit, factFuel] = await Promise.all([
+    fuel.reddit ? fetchRedditFuel().catch(() => []) : Promise.resolve([]),
+    fuel.facts ? fetchFactFuel().catch(() => []) : Promise.resolve([]),
+  ]);
+  const all = [...seeds, ...facts, ...reddit, ...factFuel];
+  if (!all.length) {
+    // Everything off or dead — fall back to the local banks rather than post
+    // nothing at all.
+    return [...seedPremises(), ...factPremises()];
   }
-  return [...seeds, ...reddit];
+  return all;
 }
 
 export interface PickOptions {
