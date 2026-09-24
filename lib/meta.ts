@@ -102,6 +102,7 @@ export async function postInstagramReel(
   coverUrl: string | null,
   caption: string,
   token: string,
+  waitAttempts = 14,
 ): Promise<string> {
   const params: Record<string, string> = {
     media_type: "REELS",
@@ -111,7 +112,7 @@ export async function postInstagramReel(
   };
   if (coverUrl) params.cover_url = coverUrl;
   const container = await call(`${config.meta.igUserId}/media`, params, token);
-  await waitForContainer(container.id, token, 14, 3000); // ~42s cap for video
+  await waitForContainer(container.id, token, waitAttempts, 3000);
   return (await call(`${config.meta.igUserId}/media_publish`, { creation_id: container.id }, token)).id;
 }
 
@@ -165,8 +166,18 @@ export interface PublishResult {
   errors: string[];
 }
 
-/** Publish one post to both platforms. In dry-run, logs instead of posting. */
-export async function publishBoth(imageUrl: string, caption: string): Promise<PublishResult> {
+/** Publish one image to both platforms, idempotently.
+ *
+ *  A platform that already has an id (from an earlier attempt where only one
+ *  side succeeded) is skipped, and each new id is persisted the moment it
+ *  lands — so a retry completes the missing platform instead of double-posting
+ *  to the one that already worked. In dry-run, logs instead of posting. */
+export async function publishBoth(
+  imageUrl: string,
+  caption: string,
+  existing: { fbId?: string | null; igId?: string | null } = {},
+  persist?: ReelPersist,
+): Promise<PublishResult> {
   if (isDryRun()) {
     console.log(
       `[dry-run] would post image ${imageUrl}\n  caption: ${caption.slice(0, 90).replace(/\n/g, " ")}...`,
@@ -175,17 +186,24 @@ export async function publishBoth(imageUrl: string, caption: string): Promise<Pu
   }
   const token = await getMetaToken();
   const errors: string[] = [];
-  let fbId: string | null = null;
-  let igId: string | null = null;
-  try {
-    fbId = await postFacebookImage(imageUrl, caption, token);
-  } catch (e) {
-    errors.push(`FB: ${(e as Error).message}`);
+  let fbId: string | null = existing.fbId ?? null;
+  let igId: string | null = existing.igId ?? null;
+
+  if (!fbId) {
+    try {
+      fbId = await postFacebookImage(imageUrl, caption, token);
+      await persist?.fb(fbId);
+    } catch (e) {
+      errors.push(`FB: ${(e as Error).message}`);
+    }
   }
-  try {
-    igId = await postInstagramImage(imageUrl, caption, token);
-  } catch (e) {
-    errors.push(`IG: ${(e as Error).message}`);
+  if (!igId) {
+    try {
+      igId = await postInstagramImage(imageUrl, caption, token);
+      await persist?.ig(igId);
+    } catch (e) {
+      errors.push(`IG: ${(e as Error).message}`);
+    }
   }
   return { fbId, igId, errors };
 }
@@ -225,8 +243,14 @@ export async function publishReel(
     );
   }
   if (!igId) {
+    // Instagram is the slow one: it has to transcode the video before it will
+    // publish. When Facebook is already done (a retry completing the missing
+    // half) nothing else is competing for the run's time budget, so give IG
+    // noticeably longer before giving up — that timeout is the usual reason a
+    // reel lands on Facebook but not Instagram.
+    const attempts = fbId ? 17 : 14;
     tasks.push(
-      postInstagramReel(videoUrl, coverUrl, caption, token)
+      postInstagramReel(videoUrl, coverUrl, caption, token, attempts)
         .then(async (id) => { igId = id; await persist.ig(id); })
         .catch((e) => { errors.push(`IG: ${(e as Error).message}`); }),
     );

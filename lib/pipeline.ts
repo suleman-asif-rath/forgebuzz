@@ -12,6 +12,7 @@ import { renderMemePng, renderMemeOverlayPng, renderReelCoverPng } from "./rende
 import { getStore } from "./store";
 import { publishBoth, publishReel } from "./meta";
 import { scheduleTimes, assignPostTimes } from "./schedule";
+import { publishOutcome } from "./publishPolicy";
 import { newId, fingerprint } from "./util";
 import type {
   GenerateSummary,
@@ -245,7 +246,7 @@ export async function runReel(force = false): Promise<ReelSummary> {
 }
 
 /** Callbacks that persist each platform id the moment it lands (timeout-safe). */
-function reelPersist(store: ReturnType<typeof getStore>, id: string) {
+function platformPersist(store: ReturnType<typeof getStore>, id: string) {
   return {
     fb: (fbId: string) => store.updatePostIds(id, { fbId }),
     ig: (igId: string) => store.updatePostIds(id, { igId }),
@@ -393,6 +394,7 @@ export async function runPublish(): Promise<PublishSummary> {
   const failed: PublishSummary["failed"] = [];
 
   for (const row of due) {
+    const persist = platformPersist(store, row.id);
     const result =
       row.mediaType === "reel" && row.videoUrl
         ? await publishReel(
@@ -400,16 +402,46 @@ export async function runPublish(): Promise<PublishSummary> {
             row.imageUrl,
             row.caption,
             { fbId: row.fbId, igId: row.igId },
-            reelPersist(store, row.id),
+            persist,
           )
-        : await publishBoth(row.imageUrl, row.caption);
+        : await publishBoth(row.imageUrl, row.caption, { fbId: row.fbId, igId: row.igId }, persist);
+
     if (!result.fbId && !result.igId) {
       await store.markFailed(row.id, result.errors.join(" | ") || "unknown");
       failed.push({ id: row.id, error: result.errors.join(" | ") || "unknown" });
-    } else {
+      continue;
+    }
+
+    // A post is only DONE when it reached both platforms. Marking it posted on
+    // a one-sided success is how reels ended up on Facebook but never on
+    // Instagram: IG's transcode can outlast the run's time budget, and the row
+    // was then closed for good. Leaving it queued lets the next publish run
+    // finish the missing half — safely, because both publishers skip a platform
+    // that already has an id.
+    const outcome = publishOutcome({
+      fbId: result.fbId,
+      igId: result.igId,
+      createdAt: row.createdAt,
+    });
+
+    if (outcome === "done" || outcome === "accept-partial") {
       await store.markPosted(row.id, { fbId: result.fbId, igId: result.igId });
       await store.markTopicUsed(row.topicFingerprint);
       posted.push({ id: row.id, fbId: result.fbId, igId: result.igId });
+      if (outcome === "accept-partial") {
+        console.warn(
+          `[publish] ${row.id} only reached ${result.fbId ? "Facebook" : "Instagram"} ` +
+            `within the retry window; accepting it. ${result.errors.join(" | ")}`,
+        );
+      }
+    } else {
+      // Stays queued and still due, so the next run (every 20 min) retries the
+      // missing platform. The id that already landed is persisted, so the
+      // platform that worked is never posted to twice.
+      console.warn(
+        `[publish] ${row.id} reached ${result.fbId ? "Facebook" : "Instagram"} only — ` +
+          `leaving queued to retry the other. ${result.errors.join(" | ")}`,
+      );
     }
   }
 

@@ -21,21 +21,26 @@ async function getJson(url: string): Promise<any> {
   return res.json();
 }
 
-// Subreddits chosen because the TITLE carries the idea. Image-first meme subs
-// (r/memes, r/meirl) are deliberately excluded: their titles are junk like
-// "me irl", so they give the writer nothing to work with.
+// Subreddits chosen because the TITLE carries a JOKE. Three kinds are
+// deliberately excluded:
+//   - image-first meme subs (r/memes, r/meirl): titles are junk like "me irl"
+//   - discussion and advice subs (r/Cooking, r/Frugal): titles are questions
+//     and recipes, not jokes
+//   - venting and health subs (r/antiwork, r/insomnia): titles skew political,
+//     bleak or medical — exactly the register this page moved away from
+//
+// That leaves humour and animals. The other lanes (WORK, SLEEP, FOOD, MONEY)
+// are served entirely by the seed bank, which has 35 hand-written premises
+// each — so narrowing this list costs variety nothing.
 const SUBS: { sub: string; lane: string; photo: string }[] = [
   { sub: "Showerthoughts", lane: "RELATABLE", photo: "person thinking" },
   { sub: "oneliners", lane: "RELATABLE", photo: "funny everyday scene" },
   { sub: "dadjokes", lane: "RELATABLE", photo: "person laughing" },
-  { sub: "antiwork", lane: "WORK", photo: "tired office worker" },
-  { sub: "OneJob", lane: "WORK", photo: "workplace fail" },
-  { sub: "insomnia", lane: "SLEEP", photo: "person awake at night" },
-  { sub: "Cooking", lane: "FOOD", photo: "home cooking kitchen" },
-  { sub: "frugal", lane: "MONEY", photo: "wallet and coins" },
+  { sub: "CleanJokes", lane: "RELATABLE", photo: "person laughing" },
   { sub: "aww", lane: "ANIMALS", photo: "cute pet" },
   { sub: "AnimalsBeingDerps", lane: "ANIMALS", photo: "funny pet" },
   { sub: "cats", lane: "ANIMALS", photo: "cat at home" },
+  { sub: "rarepuppers", lane: "ANIMALS", photo: "happy dog" },
 ];
 
 // Titles that carry no usable idea. Reddit is a top-up, so we drop aggressively

@@ -15,6 +15,7 @@ import { SEEDS } from "../lib/premises";
 import { isBlocked, isUnsafeOutput } from "../lib/blocklist";
 import { fingerprint } from "../lib/util";
 import { scheduleTimes, assignPostTimes } from "../lib/schedule";
+import { publishOutcome, PARTIAL_RETRY_WINDOW_MS } from "../lib/publishPolicy";
 import type { LaneSetting, Premise } from "../lib/types";
 
 const LANES = ["RELATABLE", "WORK", "SLEEP", "FOOD", "MONEY", "ANIMALS"];
@@ -161,6 +162,43 @@ assignPostTimes(secondBatch, future, 3);
 check(
   "an incremental batch takes the slots after the earlier one",
   secondBatch[0].scheduledFor === future[3] && secondBatch[1].scheduledFor === future[4],
+);
+
+console.log("\nPublishing to both platforms");
+const nowMs = Date.now();
+const madeAgo = (ms: number) => new Date(nowMs - ms).toISOString();
+const MIN = 60_000;
+
+check(
+  "reached both platforms -> done",
+  publishOutcome({ fbId: "f", igId: "i", createdAt: madeAgo(5 * MIN), now: nowMs }) === "done",
+);
+check(
+  "reached neither platform -> failed",
+  publishOutcome({ fbId: null, igId: null, createdAt: madeAgo(5 * MIN), now: nowMs }) === "failed",
+);
+// The exact failure seen on the live feed: a reel on Facebook, missing from
+// Instagram, and closed for good so it never got another chance.
+check(
+  "Facebook only and still fresh -> retry Instagram (the live reel bug)",
+  publishOutcome({ fbId: "f", igId: null, createdAt: madeAgo(5 * MIN), now: nowMs }) === "retry",
+);
+check(
+  "Instagram only and still fresh -> retry Facebook",
+  publishOutcome({ fbId: null, igId: "i", createdAt: madeAgo(5 * MIN), now: nowMs }) === "retry",
+);
+check(
+  "one platform, past the retry window -> accept instead of retrying forever",
+  publishOutcome({
+    fbId: "f",
+    igId: null,
+    createdAt: madeAgo(PARTIAL_RETRY_WINDOW_MS + MIN),
+    now: nowMs,
+  }) === "accept-partial",
+);
+check(
+  "an unparseable timestamp never retries forever",
+  publishOutcome({ fbId: "f", igId: null, createdAt: "not-a-date", now: nowMs }) === "accept-partial",
 );
 
 console.log(`\n${passed} passed, ${failed} failed\n`);
