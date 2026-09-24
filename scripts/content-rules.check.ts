@@ -14,6 +14,7 @@ import { pickPremises } from "../lib/ideas";
 import { SEEDS } from "../lib/premises";
 import { isBlocked, isUnsafeOutput } from "../lib/blocklist";
 import { fingerprint } from "../lib/util";
+import { scheduleTimes, assignPostTimes } from "../lib/schedule";
 import type { LaneSetting, Premise } from "../lib/types";
 
 const LANES = ["RELATABLE", "WORK", "SLEEP", "FOOD", "MONEY", "ANIMALS"];
@@ -117,6 +118,50 @@ check("mild profanity is blocked at 'clean'", isUnsafeOutput("this damn alarm ag
 check("meme slang \"I'm dead\" survives the output check", !isUnsafeOutput("i'm dead this is so me", "pg13"));
 check("politics is blocked in output at every edge", isUnsafeOutput("the election was wild", "sharp"));
 check("an ordinary joke passes", !isUnsafeOutput("my cat judges me from the shelf", "pg13"));
+
+console.log("\nScheduling");
+const TZ = "Asia/Karachi";
+const HOURS = [9, 11, 13, 15, 17, 19, 21];
+const slotsA = scheduleTimes(HOURS, TZ, 6, "variable");
+const slotsB = scheduleTimes(HOURS, TZ, 6, "variable");
+check(
+  "variable times are stable across runs (incremental generate needs this)",
+  JSON.stringify(slotsA) === JSON.stringify(slotsB),
+);
+check("variable times are chronological", slotsA.every((t, i) => i === 0 || t >= slotsA[i - 1]));
+check("variable times are all distinct", new Set(slotsA).size === slotsA.length);
+
+const now = Date.now();
+const isoAt = (h: number) => new Date(now + h * 3600_000).toISOString();
+
+// A late cron, a retry, or a manual run mid-afternoon: most slots have passed.
+const expired = [-8, -6, -4, -2, 1, 3].map(isoAt);
+const late = Array.from({ length: 6 }, () => ({ scheduledFor: "" }));
+assignPostTimes(late, expired, 0);
+check(
+  "an expired slot never schedules a post in the past",
+  late.every((r) => Date.parse(r.scheduledFor) > now),
+);
+const gaps = late
+  .slice(1)
+  .map((r, i) => (Date.parse(r.scheduledFor) - Date.parse(late[i].scheduledFor)) / 60_000);
+check(
+  "expired slots drip-feed rather than bursting (>= 20 min apart)",
+  gaps.every((g) => g >= 20),
+  `gaps: ${gaps.map((g) => Math.round(g)).join(", ")} min`,
+);
+
+const future = [1, 3, 5, 7, 9, 11].map(isoAt);
+const kept = Array.from({ length: 3 }, () => ({ scheduledFor: "" }));
+assignPostTimes(kept, future, 0);
+check("future slots are preserved exactly", kept.every((r, i) => r.scheduledFor === future[i]));
+
+const secondBatch = Array.from({ length: 2 }, () => ({ scheduledFor: "" }));
+assignPostTimes(secondBatch, future, 3);
+check(
+  "an incremental batch takes the slots after the earlier one",
+  secondBatch[0].scheduledFor === future[3] && secondBatch[1].scheduledFor === future[4],
+);
 
 console.log(`\n${passed} passed, ${failed} failed\n`);
 process.exitCode = failed ? 1 : 0;

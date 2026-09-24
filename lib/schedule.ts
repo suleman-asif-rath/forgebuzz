@@ -103,3 +103,37 @@ export function scheduleAtHour(hour: number, timezone: string): string {
   const { year, month, day } = todayInTz(timezone);
   return zonedTimeToUTC(year, month, day, hour, 0, timezone).toISOString();
 }
+
+/** Smallest gap between two posts that were pushed off an expired slot. */
+const CATCHUP_GAP_MS = 25 * 60_000;
+/** Never schedule something as due the instant it is written. */
+const CATCHUP_LEAD_MS = 5 * 60_000;
+
+/** Give each new post a time, taking the day's slots this batch owns.
+ *
+ *  A slot that has already passed is NOT used as-is: it would mark the post
+ *  immediately due, and the next publish run would fire the whole batch
+ *  back-to-back — which reads as spam and risks Meta's rate limits. Expired
+ *  slots are instead spread forward from now, so a late cron, a retry, or a
+ *  manual run mid-afternoon still drip-feeds.
+ *
+ *  `alreadyDone` is how many of the day's slots earlier batches used up, since
+ *  generation is incremental. */
+export function assignPostTimes(
+  rows: { scheduledFor: string }[],
+  dayTimes: string[],
+  alreadyDone: number,
+): void {
+  let cursor = Date.now() + CATCHUP_LEAD_MS;
+  rows.forEach((r, i) => {
+    const owned = dayTimes[Math.min(alreadyDone + i, dayTimes.length - 1)];
+    const slot = Date.parse(owned);
+    if (Number.isFinite(slot) && slot > cursor) {
+      r.scheduledFor = new Date(slot).toISOString();
+      cursor = slot + CATCHUP_GAP_MS;
+    } else {
+      r.scheduledFor = new Date(cursor).toISOString();
+      cursor += CATCHUP_GAP_MS;
+    }
+  });
+}

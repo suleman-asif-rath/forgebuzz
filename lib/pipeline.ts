@@ -11,7 +11,7 @@ import { buildReel } from "./mux";
 import { renderMemePng, renderMemeOverlayPng, renderReelCoverPng } from "./render";
 import { getStore } from "./store";
 import { publishBoth, publishReel } from "./meta";
-import { scheduleTimes } from "./schedule";
+import { scheduleTimes, assignPostTimes } from "./schedule";
 import { newId, fingerprint } from "./util";
 import type {
   GenerateSummary,
@@ -182,9 +182,7 @@ export async function runGenerate(): Promise<GenerateSummary> {
     settings.postsPerDay,
     settings.postingMode,
   );
-  rows.forEach((r, i) => {
-    r.scheduledFor = times[Math.min(alreadyDone + i, times.length - 1)];
-  });
+  assignPostTimes(rows, times, alreadyDone);
 
   if (rows.length) await store.enqueue(rows);
   return { mode, picked: rows.length, queued: rows, skipped };
