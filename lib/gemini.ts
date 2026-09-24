@@ -13,9 +13,17 @@ import { config } from "./config";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-/** Total attempts per call, across keys and models. Kept small: generation runs
- *  inside a 60s serverless budget, so failing fast beats retrying forever. */
-const MAX_ATTEMPTS = 5;
+/** Total attempts per call, across keys and models.
+ *
+ *  The free tier's limit is per-KEY and per-MINUTE (20 requests/min/key on
+ *  gemini-3.6-flash; a 429 says "retry in ~36s"). Rotating to another key is
+ *  therefore the right move — but only if we try enough of them. A fixed 5
+ *  attempts meant a handful of recently-throttled keys could use up every
+ *  attempt while healthy keys further round the rotation were never reached,
+ *  and the premise was dropped for no good reason.
+ *
+ *  Still bounded, because generation runs inside a 60s serverless budget. */
+const MAX_ATTEMPTS_CAP = 8;
 
 const RETRYABLE = new Set([429, 500, 502, 503, 504]);
 
@@ -81,10 +89,12 @@ export async function generateJson(prompt: string, temperature: number): Promise
 
   let lastErr: Error = new GeminiError("gemini: no attempt made", 0);
   let attempt = 0;
+  // Reach as far round the key rotation as the budget allows.
+  const maxAttempts = Math.min(Math.max(keys.length, 1), MAX_ATTEMPTS_CAP);
   // A 404 means the model is unavailable for that key, and trying the same
   // model on other keys is usually pointless — so a 404 jumps to the next model.
   for (const model of models) {
-    for (let i = 0; i < keys.length && attempt < MAX_ATTEMPTS; i++) {
+    for (let i = 0; i < keys.length && attempt < maxAttempts; i++) {
       const key = keys[(rotationIndex + i) % keys.length];
       if (isCooling(key)) continue; // throttled recently — don't waste an attempt
       attempt++;
@@ -100,10 +110,11 @@ export async function generateJson(prompt: string, temperature: number): Promise
           continue; // another key is far more likely to work than this one
         }
         if (status === 404) break; // this model is gone for this key set
-        if (RETRYABLE.has(status)) await sleep(400 * attempt); // overloaded — ease off
+        // 429 already rotated above; this backoff is for real overload (5xx).
+        if (RETRYABLE.has(status)) await sleep(300 * attempt);
       }
     }
-    if (attempt >= MAX_ATTEMPTS) break;
+    if (attempt >= maxAttempts) break;
   }
   throw lastErr;
 }
