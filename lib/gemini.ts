@@ -13,29 +13,37 @@ import { config } from "./config";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-/** Total attempts per call, across keys and models.
+/** Attempts allowed on EACH model before moving to the next one.
  *
- *  The free tier's limit is per-KEY and per-MINUTE (20 requests/min/key on
- *  gemini-3.6-flash; a 429 says "retry in ~36s"). Rotating to another key is
- *  therefore the right move — but only if we try enough of them. A fixed 5
- *  attempts meant a handful of recently-throttled keys could use up every
- *  attempt while healthy keys further round the rotation were never reached,
- *  and the premise was dropped for no good reason.
+ *  The free tier's real limit is `GenerateRequestsPerDayPerProjectPerModel`:
+ *  20 requests per DAY, per key, per model. Two consequences shape this file:
  *
- *  Still bounded, because generation runs inside a 60s serverless budget. */
-const MAX_ATTEMPTS_CAP = 8;
+ *   1. Rotating keys helps (each key is its own project), and rotating MODELS
+ *      helps just as much, because each model has its own separate allowance.
+ *      10 keys x 2 models is ~400 requests a day, which is ample for the
+ *      handful of posts this page makes.
+ *   2. The budget must be PER MODEL. A global attempt budget was spent
+ *      entirely on the first model's exhausted keys, so the fallback model —
+ *      sitting there with its whole daily allowance untouched — was never
+ *      reached, and the premise was dropped.
+ *
+ *  Still bounded overall, because generation runs in a 60s serverless budget. */
+const ATTEMPTS_PER_MODEL = 4;
 
 const RETRYABLE = new Set([429, 500, 502, 503, 504]);
 
 // Round-robin pointer, shared across every caller, so quota spreads evenly.
 let rotationIndex = 0;
 
-/** Keys that recently hit their rate limit, and when they may be tried again.
- *  Without this, a run where most keys are throttled spends every attempt on
- *  keys that are already known to be refusing, and gives up with healthy keys
- *  left untouched. Cleared naturally as the cooldown expires. */
+/** Key+model pairs that recently hit their quota, and when to try them again.
+ *  Keyed by BOTH because the quota is per key per model: a key that is spent
+ *  on one model may still have its full allowance on another. Cleared
+ *  naturally as the cooldown expires. */
 const coolingUntil = new Map<string, number>();
-const COOLDOWN_MS = 60_000;
+const coolKey = (model: string, key: string) => `${model}::${key}`;
+// The quota is daily, but a serverless process is short-lived, so this only
+// needs to stop one run from hammering a key it has already seen refuse.
+const COOLDOWN_MS = 45_000;
 
 function isCooling(key: string): boolean {
   const until = coolingUntil.get(key);
@@ -89,32 +97,43 @@ export async function generateJson(prompt: string, temperature: number): Promise
 
   let lastErr: Error = new GeminiError("gemini: no attempt made", 0);
   let attempt = 0;
-  // Reach as far round the key rotation as the budget allows.
-  const maxAttempts = Math.min(Math.max(keys.length, 1), MAX_ATTEMPTS_CAP);
+
+  // Prefer keys that are not cooling — but if EVERY key is cooling, still try
+  // them rather than give up having made no request at all. Skipping the whole
+  // rotation was silently dropping every premise for a full minute once a
+  // burst had throttled all the keys: the caller saw "no attempt made" and
+  // treated it as an unwritable premise.
+  const rotated = keys.map((_, i) => keys[(rotationIndex + i) % keys.length]);
+
   // A 404 means the model is unavailable for that key, and trying the same
   // model on other keys is usually pointless — so a 404 jumps to the next model.
   for (const model of models) {
-    for (let i = 0; i < keys.length && attempt < maxAttempts; i++) {
-      const key = keys[(rotationIndex + i) % keys.length];
-      if (isCooling(key)) continue; // throttled recently — don't waste an attempt
+    const available = rotated.filter((k) => !isCooling(coolKey(model, k)));
+    const order = available.length ? available : rotated;
+    let modelAttempts = 0;
+    for (let i = 0; i < order.length && modelAttempts < ATTEMPTS_PER_MODEL; i++) {
+      const key = order[i];
+      modelAttempts++;
       attempt++;
       try {
         const out = await callOnce(model, key, prompt, temperature);
-        rotationIndex = (rotationIndex + i + 1) % keys.length; // advance for next call
+        // Advance past the key that worked, so load spreads on the next call.
+        rotationIndex = (keys.indexOf(key) + 1) % keys.length;
         return out;
       } catch (e) {
         lastErr = e as Error;
         const status = e instanceof GeminiError ? e.status : 0;
         if (status === 429) {
-          coolingUntil.set(key, Date.now() + COOLDOWN_MS);
-          continue; // another key is far more likely to work than this one
+          // Spent for the day on THIS model; another key, or this same key on
+          // the fallback model, is far more likely to work.
+          coolingUntil.set(coolKey(model, key), Date.now() + COOLDOWN_MS);
+          continue;
         }
         if (status === 404) break; // this model is gone for this key set
         // 429 already rotated above; this backoff is for real overload (5xx).
         if (RETRYABLE.has(status)) await sleep(300 * attempt);
       }
     }
-    if (attempt >= maxAttempts) break;
   }
   throw lastErr;
 }

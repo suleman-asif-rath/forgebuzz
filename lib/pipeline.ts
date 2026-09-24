@@ -301,12 +301,17 @@ async function buildReelRow(
   let sawJoke = false;
 
   for (const p of picks) {
+    // Find the footage BEFORE writing anything. Writing costs two Gemini calls
+    // (the writer and the reviewer), and the free tier allows only about 25
+    // requests a day per key, so spending them on a premise that then turns out
+    // to have no matching clip is the most wasteful thing this pipeline can do.
+    // The premise's own photo hint is a good enough search term for this.
+    const clip = await findStockVideo(p.photo);
+    if (!clip) continue; // no footage for this premise — try the next
+
     const content = await safeWrite(p, settings, true, skipped);
     if (!content) continue;
     sawJoke = true;
-
-    const clip = await findStockVideo(content.photoKeyword);
-    if (!clip) continue; // no footage for this keyword — try the next premise
 
     const id = newId();
     const rawClip = await downloadToBuffer(clip.url);
@@ -375,8 +380,8 @@ async function buildReelRow(
 
   return {
     reason: sawJoke
-      ? "jokes written but no stock clip matched"
-      : `all candidate premises were filtered out (${skipped.slice(0, 2).join("; ")})`,
+      ? `clips found but no joke survived (${skipped.slice(0, 2).join("; ")})`
+      : "no candidate premise had matching stock footage",
   };
 }
 
